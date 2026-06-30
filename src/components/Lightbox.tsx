@@ -86,7 +86,7 @@ export function Lightbox({
             variant="ghost"
             size="icon"
             onClick={() => setZoomed((z) => !z)}
-            title={zoomed ? "맞춤" : "100%"}
+            title={zoomed ? "화면에 맞추기" : "화면 폭에 맞춰 크게"}
           >
             {zoomed ? <Minimize2 /> : <Maximize2 />}
           </Button>
@@ -96,9 +96,13 @@ export function Lightbox({
         </div>
       </header>
 
-      {/* Stage */}
+      {/* Stage. When zoomed we fit to width and scroll vertically, so align to
+          the top — otherwise a tall image's top would be clipped and unreachable. */}
       <div
-        className="relative flex flex-1 items-center justify-center overflow-auto px-4 pb-6"
+        className={cn(
+          "relative flex flex-1 justify-center overflow-auto px-4 pb-6",
+          zoomed ? "items-start" : "items-center"
+        )}
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
@@ -116,13 +120,14 @@ export function Lightbox({
           alt={item.name}
           onClick={() => setZoomed((z) => !z)}
           className={cn(
-            "rounded-2xl shadow-2xl shadow-black/60 transition-all duration-500 ease-spring",
+            "rounded-2xl shadow-2xl shadow-black/60 transition-[opacity,filter] duration-300 ease-spring",
             zoomed
-              ? "max-w-none cursor-zoom-out"
-              : "max-h-full max-w-full cursor-zoom-in object-contain",
+              ? "h-auto w-full max-w-none cursor-zoom-out" // fit to screen width
+              : "max-h-full max-w-full cursor-zoom-in object-contain", // fit fully
             !fullUrl && "blur-sm"
           )}
-          style={zoomed ? { width: item.width } : undefined}
+          // Don't upscale past the image's own width when fitting to width.
+          style={zoomed ? { maxWidth: item.width } : undefined}
         />
       </div>
 
