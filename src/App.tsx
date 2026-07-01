@@ -55,7 +55,25 @@ export default function App() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [density, setDensity] = useState<Density>("md");
+  const [toast, setToast] = useState<string | null>(null);
+  const cacheHintShown = useRef(false);
   const anchorRef = useRef<number | null>(null);
+
+  // Auto-dismiss the toast.
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  // Once per session, explain that a cache-only delete leaves the real file.
+  const cacheDeleteHint = useCallback(() => {
+    if (cacheHintShown.current) return;
+    cacheHintShown.current = true;
+    setToast(
+      "목록에서만 제거했어요 — 원본 파일은 그대로입니다. 드래그드롭은 브라우저 제한상 원본을 못 지워요. 원본까지 지우려면 ‘폴더 추가/폴더 선택’ 버튼으로 폴더를 열어주세요."
+    );
+  }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canPick = directoryPickerSupported();
 
@@ -307,19 +325,22 @@ export default function App() {
     if (!confirm(msg)) return;
     lib.removeMany(selArr);
     clearSelection();
-  }, [selArr, lib, clearSelection]);
+    if (realCount === 0) cacheDeleteHint();
+  }, [selArr, lib, clearSelection, cacheDeleteHint]);
 
   // Delete one image — confirm when it will remove the real file on disk.
   const handleDelete = useCallback(
     (id: string) => {
-      if (lib.hasHandle(id)) {
+      const real = lib.hasHandle(id);
+      if (real) {
         if (!confirm("원본 파일을 디스크에서 영구 삭제합니다. 되돌릴 수 없어요. 진행할까요?")) {
           return;
         }
       }
       lib.removeItem(id);
+      if (!real) cacheDeleteHint();
     },
-    [lib]
+    [lib, cacheDeleteHint]
   );
 
   const handleDeleteDupes = useCallback(() => {
@@ -504,6 +525,22 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {toast && (
+        <div className="animate-fade-up fixed inset-x-0 bottom-5 z-[70] flex justify-center px-4">
+          <div className="glass flex max-w-xl items-start gap-2.5 rounded-xl border border-slate-700/70 px-4 py-3 text-xs leading-relaxed text-slate-200 shadow-2xl shadow-black/50">
+            <Info className="mt-0.5 size-4 shrink-0 text-sky-300" />
+            <span className="flex-1">{toast}</span>
+            <button
+              onClick={() => setToast(null)}
+              className="shrink-0 text-slate-500 hover:text-slate-300"
+              aria-label="닫기"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {lightboxIndex !== null && activeItems[lightboxIndex] && (
         <Lightbox
