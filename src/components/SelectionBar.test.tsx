@@ -5,11 +5,15 @@ import { SelectionBar } from "./SelectionBar";
 function setup(overrides = {}) {
   const props = {
     count: 3,
+    total: 10,
     collections: [{ id: "c1", name: "여름" }],
+    onSelectAll: vi.fn(),
     onAddToCollection: vi.fn(),
     onCreateAndAdd: vi.fn(),
     onFavorite: vi.fn(),
     onDelete: vi.fn(),
+    onRestore: vi.fn(),
+    onDeleteForever: vi.fn(),
     onClear: vi.fn(),
     ...overrides,
   };
@@ -56,5 +60,21 @@ describe("SelectionBar", () => {
     const { onClear } = setup();
     fireEvent.click(screen.getByTitle("선택 해제 (Esc)"));
     expect(onClear).toHaveBeenCalled();
+  });
+
+  it("selects all", () => {
+    const { onSelectAll } = setup({ count: 3, total: 10 });
+    fireEvent.click(screen.getByRole("button", { name: /전체 선택/ }));
+    expect(onSelectAll).toHaveBeenCalled();
+  });
+
+  it("shows restore / delete-forever in trash mode", () => {
+    const { onRestore, onDeleteForever } = setup({ trashMode: true });
+    fireEvent.click(screen.getByRole("button", { name: /복구/ }));
+    fireEvent.click(screen.getByRole("button", { name: /영구 삭제/ }));
+    expect(onRestore).toHaveBeenCalled();
+    expect(onDeleteForever).toHaveBeenCalled();
+    // No 삭제(휴지통)/collection actions in trash mode.
+    expect(screen.queryByRole("button", { name: /컬렉션에 추가/ })).toBeNull();
   });
 });

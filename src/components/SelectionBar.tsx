@@ -1,26 +1,45 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckCheck, Layers, Star, Trash2, X, Plus } from "lucide-react";
+import {
+  CheckCheck,
+  Layers,
+  Star,
+  Trash2,
+  X,
+  Plus,
+  RotateCcw,
+  ListChecks,
+} from "lucide-react";
 import type { Collection } from "@/lib/types";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
 
 interface SelectionBarProps {
   count: number;
+  total: number;
   collections: Collection[];
+  trashMode?: boolean;
+  onSelectAll: () => void;
   onAddToCollection: (collectionId: string) => void;
   onCreateAndAdd: (name: string) => void;
   onFavorite: () => void;
   onDelete: () => void;
+  onRestore: () => void;
+  onDeleteForever: () => void;
   onClear: () => void;
 }
 
 export function SelectionBar({
   count,
+  total,
   collections,
+  trashMode,
+  onSelectAll,
   onAddToCollection,
   onCreateAndAdd,
   onFavorite,
   onDelete,
+  onRestore,
+  onDeleteForever,
   onClear,
 }: SelectionBarProps) {
   return (
@@ -29,19 +48,41 @@ export function SelectionBar({
       <span className="text-xs font-semibold text-sky-100">{count}개 선택</span>
 
       <div className="ml-2 flex flex-wrap items-center gap-2">
-        <CollectionMenu
-          collections={collections}
-          onAddToCollection={onAddToCollection}
-          onCreateAndAdd={onCreateAndAdd}
-        />
-        <Button variant="secondary" size="sm" onClick={onFavorite}>
-          <Star />
-          즐겨찾기
-        </Button>
-        <Button variant="danger" size="sm" onClick={onDelete}>
-          <Trash2 />
-          삭제
-        </Button>
+        {count < total && (
+          <Button variant="secondary" size="sm" onClick={onSelectAll}>
+            <ListChecks />
+            전체 선택
+          </Button>
+        )}
+
+        {trashMode ? (
+          <>
+            <Button variant="secondary" size="sm" onClick={onRestore}>
+              <RotateCcw />
+              복구
+            </Button>
+            <Button variant="danger" size="sm" onClick={onDeleteForever}>
+              <Trash2 />
+              영구 삭제
+            </Button>
+          </>
+        ) : (
+          <>
+            <CollectionMenu
+              collections={collections}
+              onAddToCollection={onAddToCollection}
+              onCreateAndAdd={onCreateAndAdd}
+            />
+            <Button variant="secondary" size="sm" onClick={onFavorite}>
+              <Star />
+              즐겨찾기
+            </Button>
+            <Button variant="danger" size="sm" onClick={onDelete}>
+              <Trash2 />
+              삭제
+            </Button>
+          </>
+        )}
       </div>
 
       <button

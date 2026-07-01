@@ -9,6 +9,7 @@ import {
   Trash2,
   Check,
 } from "lucide-react";
+import { Trash } from "lucide-react";
 import type { Collection } from "@/lib/types";
 import { selectionKey, type Selection } from "@/lib/view";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ import { cn } from "@/lib/utils";
 interface Counts {
   all: number;
   favorites: number;
+  trash: number;
   folders: Record<string, number>;
   collections: Record<string, number>;
 }
@@ -145,6 +147,15 @@ export function Sidebar({
           dropTarget={dropKey === "favorites"}
           {...dropProps("favorites", onDropToFavorite)}
         />
+        {counts.trash > 0 && (
+          <Row
+            icon={Trash}
+            label="휴지통"
+            count={counts.trash}
+            active={active === "trash"}
+            onClick={() => select({ kind: "trash" })}
+          />
+        )}
       </Section>
 
       {folders.length > 0 && (

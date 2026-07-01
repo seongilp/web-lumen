@@ -21,6 +21,8 @@ export interface ViewState {
   collection?: string;
   /** Free-text search over filename + camera. */
   query?: string;
+  /** Show trashed (true) vs live (false/undefined) items. */
+  trashed?: boolean;
 }
 
 export const ALL_FOLDERS = "";
@@ -30,6 +32,7 @@ export const ROOT_FOLDER = "__root__";
 export type Selection =
   | { kind: "all" }
   | { kind: "favorites" }
+  | { kind: "trash" }
   | { kind: "folder"; value: string }
   | { kind: "collection"; id: string };
 
@@ -47,12 +50,13 @@ export function selectionKey(s: Selection): string {
 /** Map a sidebar selection onto the filter fields of a ViewState. */
 export function selectionToView(s: Selection): Pick<
   ViewState,
-  "onlyFavorites" | "folder" | "collection"
+  "onlyFavorites" | "folder" | "collection" | "trashed"
 > {
   return {
     onlyFavorites: s.kind === "favorites",
     folder: s.kind === "folder" ? s.value : ALL_FOLDERS,
     collection: s.kind === "collection" ? s.id : undefined,
+    trashed: s.kind === "trash",
   };
 }
 
@@ -120,6 +124,7 @@ function compare(a: ImageItem, b: ImageItem, key: SortKey): number {
 export function applyView(items: ImageItem[], v: ViewState): ImageItem[] {
   const q = v.query?.trim().toLowerCase();
   const filtered = items.filter((it) => {
+    if (Boolean(it.trashed) !== Boolean(v.trashed)) return false;
     if (v.onlyFavorites && !it.favorite) return false;
     if (v.collection && !it.collections.includes(v.collection)) return false;
     if (q && !it.name.toLowerCase().includes(q) && !it.camera?.toLowerCase().includes(q)) {

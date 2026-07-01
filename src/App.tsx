@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, SearchX, Info, X } from "lucide-react";
+import { AlertTriangle, SearchX, Info, X, Trash2 } from "lucide-react";
 import { Dropzone } from "./components/Dropzone";
 import { Toolbar } from "./components/Toolbar";
 import { ControlBar } from "./components/ControlBar";
@@ -55,8 +55,9 @@ export default function App() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [density, setDensity] = useState<Density>("md");
-  const [toast, setToast] = useState<string | null>(null);
-  const cacheHintShown = useRef(false);
+  const [toast, setToast] = useState<
+    { message: string; action?: { label: string; run: () => void } } | null
+  >(null);
   const anchorRef = useRef<number | null>(null);
 
   // Auto-dismiss the toast.
@@ -65,15 +66,6 @@ export default function App() {
     const t = setTimeout(() => setToast(null), 6000);
     return () => clearTimeout(t);
   }, [toast]);
-
-  // Once per session, explain that a cache-only delete leaves the real file.
-  const cacheDeleteHint = useCallback(() => {
-    if (cacheHintShown.current) return;
-    cacheHintShown.current = true;
-    setToast(
-      "목록에서만 제거했어요 — 원본 파일은 그대로입니다. 드래그드롭은 브라우저 제한상 원본을 못 지워요. 원본까지 지우려면 ‘폴더 추가/폴더 선택’ 버튼으로 폴더를 열어주세요."
-    );
-  }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canPick = directoryPickerSupported();
 
@@ -100,21 +92,30 @@ export default function App() {
   const counts = useMemo(() => {
     const foldersC: Record<string, number> = {};
     const collectionsC: Record<string, number> = {};
+    let all = 0;
     let favorites = 0;
+    let trash = 0;
     for (const it of lib.items) {
+      if (it.trashed) {
+        trash++;
+        continue; // trashed items don't count toward live sections
+      }
+      all++;
       if (it.favorite) favorites++;
       const f = topFolder(it.relPath);
       const key = f === "" ? ROOT_FOLDER : f;
       foldersC[key] = (foldersC[key] ?? 0) + 1;
       for (const c of it.collections) collectionsC[c] = (collectionsC[c] ?? 0) + 1;
     }
-    return { all: lib.items.length, favorites, folders: foldersC, collections: collectionsC };
+    return { all, favorites, trash, folders: foldersC, collections: collectionsC };
   }, [lib.items]);
 
   const selectionTitle = useMemo(() => {
     switch (selection.kind) {
       case "favorites":
         return "즐겨찾기";
+      case "trash":
+        return "휴지통";
       case "folder":
         return selection.value === ROOT_FOLDER ? "최상위" : selection.value;
       case "collection":
@@ -124,7 +125,7 @@ export default function App() {
     }
   }, [selection, lib.collections]);
 
-  // If the selected collection/folder disappears, fall back to 전체.
+  // If the selected collection/folder/trash disappears, fall back to 전체.
   useEffect(() => {
     if (selection.kind === "collection" && !lib.collections.some((c) => c.id === selection.id)) {
       setSelection({ kind: "all" });
@@ -135,7 +136,10 @@ export default function App() {
     ) {
       setSelection({ kind: "all" });
     }
-  }, [selection, lib.collections, folders]);
+    if (selection.kind === "trash" && counts.trash === 0) {
+      setSelection({ kind: "all" });
+    }
+  }, [selection, lib.collections, folders, counts.trash]);
 
   // In duplicate mode, the grid/lightbox operate on the grouped duplicate list.
   const activeItems = dupMode ? dup.ordered : visibleItems;
@@ -290,6 +294,10 @@ export default function App() {
     [activeItems]
   );
 
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(activeItems.map((it) => it.id)));
+  }, [activeItems]);
+
   // Prune selection to ids that still exist; clear when switching sections.
   useEffect(() => {
     setSelectedIds((prev) => {
@@ -304,58 +312,74 @@ export default function App() {
     clearSelection();
   }, [selection, clearSelection]);
 
-  // Esc clears selection when no overlay is open.
+  // Esc clears selection; Cmd/Ctrl+A selects all — when no overlay is open.
   useEffect(() => {
-    if (selectedIds.size === 0 || lightboxIndex !== null || editingId !== null) return;
+    if (lightboxIndex !== null || editingId !== null) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") clearSelection();
+      const tag = (document.activeElement as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "Escape" && selectedIds.size > 0) clearSelection();
+      if ((e.metaKey || e.ctrlKey) && (e.key === "a" || e.key === "A")) {
+        e.preventDefault();
+        selectAll();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedIds.size, lightboxIndex, editingId, clearSelection]);
+  }, [selectedIds.size, lightboxIndex, editingId, clearSelection, selectAll]);
 
   const selArr = useMemo(() => [...selectedIds], [selectedIds]);
 
   const bulkDelete = useCallback(() => {
-    const realCount = selArr.filter((id) => lib.hasHandle(id)).length;
-    const msg =
-      realCount > 0
-        ? `${selArr.length}장을 삭제합니다. 이 중 ${realCount}장은 원본 파일까지 영구 삭제돼요. 진행할까요?`
-        : `${selArr.length}장을 목록에서 제거할까요?`;
-    if (!confirm(msg)) return;
+    const ids = selArr;
+    lib.trashItems(ids);
+    clearSelection();
+    setToast({
+      message: `${ids.length}장을 휴지통으로 옮겼어요.`,
+      action: { label: "실행취소", run: () => lib.restoreItems(ids) },
+    });
+  }, [selArr, lib, clearSelection]);
+
+  const bulkRestore = useCallback(() => {
+    lib.restoreItems(selArr);
+    clearSelection();
+  }, [selArr, lib, clearSelection]);
+
+  const bulkDeleteForever = useCallback(() => {
     lib.removeMany(selArr);
     clearSelection();
-    if (realCount === 0) cacheDeleteHint();
-  }, [selArr, lib, clearSelection, cacheDeleteHint]);
+  }, [selArr, lib, clearSelection]);
 
-  // Delete one image — confirm when it will remove the real file on disk.
+  const emptyTrash = useCallback(() => {
+    lib.removeMany(lib.items.filter((it) => it.trashed).map((it) => it.id));
+  }, [lib]);
+
+  const inTrash = selection.kind === "trash";
+
+  // Delete = move to trash (recoverable). Trashed items delete permanently.
   const handleDelete = useCallback(
     (id: string) => {
-      const real = lib.hasHandle(id);
-      if (real) {
-        if (!confirm("원본 파일을 디스크에서 영구 삭제합니다. 되돌릴 수 없어요. 진행할까요?")) {
-          return;
-        }
+      const item = lib.items.find((i) => i.id === id);
+      if (item?.trashed) {
+        lib.removeItem(id); // permanent (already in trash)
+        return;
       }
-      lib.removeItem(id);
-      if (!real) cacheDeleteHint();
+      lib.trashItems([id]);
+      setToast({
+        message: "휴지통으로 옮겼어요.",
+        action: { label: "실행취소", run: () => lib.restoreItems([id]) },
+      });
     },
-    [lib, cacheDeleteHint]
+    [lib]
   );
 
   const handleDeleteDupes = useCallback(() => {
     const ids = [...dup.removableIds];
-    const realCount = ids.filter((id) => lib.hasHandle(id)).length;
-    if (realCount > 0) {
-      if (
-        !confirm(
-          `${ids.length}장을 삭제합니다. 이 중 ${realCount}장은 원본 파일까지 영구 삭제돼요. 진행할까요?`
-        )
-      ) {
-        return;
-      }
-    }
-    lib.removeMany(ids);
+    lib.trashItems(ids);
+    setToast({
+      message: `중복 ${ids.length}장을 휴지통으로 옮겼어요.`,
+      action: { label: "실행취소", run: () => lib.restoreItems(ids) },
+    });
   }, [dup.removableIds, lib]);
 
   const editItem = editingId ? lib.items.find((it) => it.id === editingId) : undefined;
@@ -374,7 +398,7 @@ export default function App() {
       <div className="flex h-full w-full flex-col">
         {hasItems && (
           <Toolbar
-            count={lib.items.length}
+            count={counts.all}
             usage={lib.usage}
             importing={lib.importing}
             progress={lib.progress}
@@ -452,10 +476,31 @@ export default function App() {
               </div>
             )}
 
+            {hasItems && !dupMode && inTrash && (
+              <div className="animate-fade-up flex items-center gap-3 border-b border-rose-500/20 bg-rose-500/10 px-5 py-2.5">
+                <Trash2 className="size-4 shrink-0 text-rose-300" />
+                <p className="min-w-0 flex-1 text-xs text-slate-200">
+                  휴지통 · <span className="font-semibold text-rose-200">{counts.trash}장</span>
+                  <span className="ml-1 text-slate-400">비우면 원본 파일까지 영구 삭제됩니다.</span>
+                </p>
+                {counts.trash > 0 && (
+                  <button
+                    onClick={emptyTrash}
+                    className="shrink-0 rounded-lg bg-rose-500/90 px-2.5 py-1 text-xs font-medium text-white hover:bg-rose-500"
+                  >
+                    휴지통 비우기
+                  </button>
+                )}
+              </div>
+            )}
+
             {hasItems && !dupMode && selectedIds.size > 0 && (
               <SelectionBar
                 count={selectedIds.size}
+                total={activeItems.length}
                 collections={lib.collections}
+                trashMode={inTrash}
+                onSelectAll={selectAll}
                 onAddToCollection={(colId) => {
                   lib.addToCollection(selArr, colId);
                   clearSelection();
@@ -469,6 +514,8 @@ export default function App() {
                   clearSelection();
                 }}
                 onDelete={bulkDelete}
+                onRestore={bulkRestore}
+                onDeleteForever={bulkDeleteForever}
                 onClear={clearSelection}
               />
             )}
@@ -528,9 +575,20 @@ export default function App() {
 
       {toast && (
         <div className="animate-fade-up fixed inset-x-0 bottom-5 z-[70] flex justify-center px-4">
-          <div className="glass flex max-w-xl items-start gap-2.5 rounded-xl border border-slate-700/70 px-4 py-3 text-xs leading-relaxed text-slate-200 shadow-2xl shadow-black/50">
-            <Info className="mt-0.5 size-4 shrink-0 text-sky-300" />
-            <span className="flex-1">{toast}</span>
+          <div className="glass flex max-w-xl items-center gap-3 rounded-xl border border-slate-700/70 px-4 py-3 text-xs leading-relaxed text-slate-200 shadow-2xl shadow-black/50">
+            <Info className="size-4 shrink-0 text-sky-300" />
+            <span className="flex-1">{toast.message}</span>
+            {toast.action && (
+              <button
+                onClick={() => {
+                  toast.action!.run();
+                  setToast(null);
+                }}
+                className="shrink-0 rounded-md bg-sky-500 px-2.5 py-1 font-medium text-white hover:bg-sky-400"
+              >
+                {toast.action.label}
+              </button>
+            )}
             <button
               onClick={() => setToast(null)}
               className="shrink-0 text-slate-500 hover:text-slate-300"

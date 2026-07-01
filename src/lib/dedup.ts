@@ -66,7 +66,7 @@ function buildGroups(clusters: Map<number, ImageItem[]>): DupResult {
 function findExact(items: ImageItem[]): DupResult {
   const byHash = new Map<string, ImageItem[]>();
   for (const it of items) {
-    if (it.status !== "ready" || !it.hash) continue;
+    if (it.status !== "ready" || it.trashed || !it.hash) continue;
     const bucket = byHash.get(it.hash);
     if (bucket) bucket.push(it);
     else byHash.set(it.hash, [it]);
@@ -80,7 +80,7 @@ function findExact(items: ImageItem[]): DupResult {
 
 // Near-duplicates: union-find clustering by perceptual-hash bit distance.
 function findSimilar(items: ImageItem[]): DupResult {
-  const pool = items.filter((it) => it.status === "ready" && it.phash);
+  const pool = items.filter((it) => it.status === "ready" && !it.trashed && it.phash);
   const n = pool.length;
   const parent = Array.from({ length: n }, (_, i) => i);
   const find = (x: number): number => {

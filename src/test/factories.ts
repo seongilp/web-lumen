@@ -18,6 +18,7 @@ export function makeItem(overrides: Partial<ImageItem> = {}): ImageItem {
     status: "ready",
     favorite: false,
     collections: [],
+    trashed: false,
     ...overrides,
   };
 }

@@ -132,6 +132,16 @@ describe("applyView – filtering", () => {
     expect(applyView(items, { ...base, query: "zzz" })).toHaveLength(0);
   });
 
+  it("separates trashed from live items", () => {
+    const items = [
+      makeItem({ trashed: false }),
+      makeItem({ trashed: true }),
+      makeItem({ trashed: true }),
+    ];
+    expect(applyView(items, { ...base })).toHaveLength(1); // live only
+    expect(applyView(items, { ...base, trashed: true })).toHaveLength(2); // trash
+  });
+
   it("filters by collection membership", () => {
     const items = [
       makeItem({ collections: ["c1"] }),
@@ -150,10 +160,12 @@ describe("selection", () => {
       onlyFavorites: false,
       folder: ALL_FOLDERS,
       collection: undefined,
+      trashed: false,
     });
     expect(selectionToView({ kind: "favorites" }).onlyFavorites).toBe(true);
     expect(selectionToView({ kind: "folder", value: "trip" }).folder).toBe("trip");
     expect(selectionToView({ kind: "collection", id: "c1" }).collection).toBe("c1");
+    expect(selectionToView({ kind: "trash" }).trashed).toBe(true);
   });
 
   it("builds stable keys for equality checks", () => {

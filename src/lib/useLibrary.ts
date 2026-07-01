@@ -50,6 +50,7 @@ function toManifest(item: ImageItem): ManifestItem {
     hash: item.hash,
     phash: item.phash,
     collections: item.collections,
+    trashed: item.trashed,
     takenAt: item.takenAt,
     camera: item.camera,
     lat: item.lat,
@@ -136,6 +137,7 @@ export function useLibrary() {
           hash: m.hash,
           phash: m.phash,
           collections: m.collections ?? [],
+          trashed: m.trashed ?? false,
           takenAt: m.takenAt,
           camera: m.camera,
           lat: m.lat,
@@ -246,6 +248,7 @@ export function useLibrary() {
             status: "pending",
             favorite: false,
             collections: [],
+            trashed: false,
           });
           jobs.push({ id, file });
         }
@@ -411,6 +414,26 @@ export function useLibrary() {
     },
     [persistManifest]
   );
+
+  // Soft delete / restore — the real files stay until the trash is emptied.
+  const setTrashed = useCallback(
+    (ids: string[], value: boolean) => {
+      const set = new Set(ids);
+      let touched = false;
+      itemsRef.current = itemsRef.current.map((it) => {
+        if (!set.has(it.id) || it.trashed === value) return it;
+        touched = true;
+        return { ...it, trashed: value };
+      });
+      if (touched) {
+        setItems(itemsRef.current.slice());
+        persistManifest();
+      }
+    },
+    [persistManifest]
+  );
+  const trashItems = useCallback((ids: string[]) => setTrashed(ids, true), [setTrashed]);
+  const restoreItems = useCallback((ids: string[]) => setTrashed(ids, false), [setTrashed]);
 
   const removeFromCollection = useCallback(
     (id: string, collectionId: string) => {
@@ -610,6 +633,8 @@ export function useLibrary() {
     removeFromCollection,
     setFavoriteMany,
     renameItem,
+    trashItems,
+    restoreItems,
     hasHandle,
   };
 }
