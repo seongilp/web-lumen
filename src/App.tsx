@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, SearchX } from "lucide-react";
 import { Dropzone } from "./components/Dropzone";
 import { Toolbar } from "./components/Toolbar";
@@ -36,6 +36,8 @@ export default function App() {
   const [dupMode, setDupMode] = useState(false);
   const [dupKind, setDupKind] = useState<DupMode>("exact");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const canPick = directoryPickerSupported();
 
   // Surface the trust banner once a restored-from-cache library is detected.
@@ -77,12 +79,63 @@ export default function App() {
     setView((v) => ({ ...v, ...patch }));
   }, []);
 
+  const importBackupFile = useCallback(
+    async (file: File) => {
+      setBusy(true);
+      try {
+        const n = await lib.importBackup(file);
+        console.info(`복원됨: ${n}장`);
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "백업을 불러오지 못했습니다.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [lib]
+  );
+
   const handleDrop = useCallback(
     async (dt: DataTransfer) => {
+      // A single .wasmi file → restore a backup; otherwise import images.
+      const dropped = Array.from(dt.files);
+      const backup = dropped.find((f) => f.name.endsWith(".wasmi"));
+      if (backup && dropped.length === 1) {
+        importBackupFile(backup);
+        return;
+      }
       const collected = await collectFromDataTransfer(dt);
       lib.importFiles(collected);
     },
-    [lib]
+    [lib, importBackupFile]
+  );
+
+  const handleExport = useCallback(async () => {
+    setBusy(true);
+    try {
+      const blob = await lib.exportBackup();
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `wasmi-backup-${stamp}.wasmi`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setBusy(false);
+    }
+  }, [lib]);
+
+  const handleImportClick = useCallback(() => fileInputRef.current?.click(), []);
+
+  const onFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) importBackupFile(file);
+      e.target.value = "";
+    },
+    [importBackupFile]
   );
 
   const handlePick = useCallback(async () => {
@@ -108,6 +161,13 @@ export default function App() {
 
   return (
     <Dropzone onDrop={handleDrop}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".wasmi,application/octet-stream"
+        className="hidden"
+        onChange={onFileChange}
+      />
       <div className="flex h-full w-full flex-col">
         {hasItems && (
           <Toolbar
@@ -118,6 +178,9 @@ export default function App() {
             canPick={canPick}
             onPick={handlePick}
             onClear={lib.clear}
+            onExport={handleExport}
+            onImport={handleImportClick}
+            busy={busy}
             workerCount={ThumbPool.defaultSize()}
           />
         )}
@@ -164,7 +227,7 @@ export default function App() {
               <div className="size-6 animate-spin rounded-full border-2 border-slate-700 border-t-sky-400" />
             </div>
           ) : !hasItems ? (
-            <EmptyState onPick={handlePick} canPick={canPick} />
+            <EmptyState onPick={handlePick} onImport={handleImportClick} canPick={canPick} />
           ) : noResults ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-500">
               <SearchX className="size-8" />

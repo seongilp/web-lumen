@@ -63,8 +63,8 @@ async function readFileMaybe(dir: string, key: string): Promise<File | null> {
   }
 }
 
-export async function writeThumb(id: string, blob: Blob): Promise<void> {
-  await writeBlob(THUMBS, id, blob);
+export async function writeThumb(id: string, data: Blob | ArrayBuffer): Promise<void> {
+  await writeBlob(THUMBS, id, data);
 }
 
 export async function readThumb(id: string): Promise<File | null> {
@@ -81,6 +81,11 @@ export async function writeOriginalStream(id: string, file: File): Promise<void>
 
 export async function readOriginal(id: string): Promise<File | null> {
   return readFileMaybe(ORIGINALS, id);
+}
+
+/** Write original bytes directly (used when restoring from a backup). */
+export async function writeOriginal(id: string, data: Blob | ArrayBuffer): Promise<void> {
+  await writeBlob(ORIGINALS, id, data);
 }
 
 export async function readManifest(): Promise<ManifestItem[]> {

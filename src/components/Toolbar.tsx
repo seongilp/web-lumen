@@ -1,4 +1,12 @@
-import { FolderOpen, Trash2, Images, Loader2, Cpu } from "lucide-react";
+import {
+  FolderOpen,
+  Trash2,
+  Images,
+  Loader2,
+  Cpu,
+  Download,
+  Upload,
+} from "lucide-react";
 import { Button } from "./ui/button";
 import { formatBytes } from "@/lib/utils";
 import type { ImportProgress } from "@/lib/useLibrary";
@@ -11,6 +19,9 @@ interface ToolbarProps {
   canPick: boolean;
   onPick: () => void;
   onClear: () => void;
+  onExport: () => void;
+  onImport: () => void;
+  busy: boolean;
   workerCount: number;
 }
 
@@ -22,6 +33,9 @@ export function Toolbar({
   canPick,
   onPick,
   onClear,
+  onExport,
+  onImport,
+  busy,
   workerCount,
 }: ToolbarProps) {
   const pct =
@@ -65,6 +79,26 @@ export function Toolbar({
           </div>
         )}
 
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onImport}
+          disabled={busy}
+          title="백업 불러오기"
+        >
+          <Upload className="text-slate-400" />
+        </Button>
+        {count > 0 && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onExport}
+            disabled={busy}
+            title="라이브러리 백업(내보내기)"
+          >
+            {busy ? <Loader2 className="animate-spin text-slate-400" /> : <Download className="text-slate-400" />}
+          </Button>
+        )}
         {canPick && (
           <Button variant="secondary" size="sm" onClick={onPick}>
             <FolderOpen />

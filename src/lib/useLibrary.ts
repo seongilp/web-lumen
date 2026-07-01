@@ -12,6 +12,7 @@ import {
   writeManifest,
 } from "./opfs";
 import type { Collected } from "./collect";
+import { exportLibrary, importLibrary } from "./backup";
 import { fileKey } from "./utils";
 import type { ImageItem, ManifestItem, ThumbResponse } from "./types";
 
@@ -97,15 +98,10 @@ export function useLibrary() {
     estimateUsage().then(setUsage);
   }, []);
 
-  // ---- Restore from OPFS on first mount --------------------------------
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      if (!supported) {
-        setReady(true);
-        return;
-      }
-      await ensurePersistent();
+  // Rebuild the in-memory library from the OPFS manifest + thumbnails. Used on
+  // first mount and after importing a backup.
+  const restoreFromOpfs = useCallback(
+    async (markRestored: boolean) => {
       const manifest = await readManifest();
       const restored: ImageItem[] = [];
       for (const m of manifest) {
@@ -119,18 +115,34 @@ export function useLibrary() {
           thumbUrl: thumb ? URL.createObjectURL(thumb) : undefined,
         });
       }
-      if (!alive) return;
+      for (const it of itemsRef.current) {
+        if (it.thumbUrl) URL.revokeObjectURL(it.thumbUrl);
+      }
       itemsRef.current = restored;
       reindex();
       setItems(restored.slice());
-      setRestoredCount(restored.length);
-      setReady(true);
+      if (markRestored) setRestoredCount(restored.length);
       refreshUsage();
+    },
+    [reindex, refreshUsage]
+  );
+
+  // ---- Restore from OPFS on first mount --------------------------------
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!supported) {
+        setReady(true);
+        return;
+      }
+      await ensurePersistent();
+      if (alive) await restoreFromOpfs(true);
+      if (alive) setReady(true);
     })();
     return () => {
       alive = false;
     };
-  }, [supported, reindex, refreshUsage]);
+  }, [supported, restoreFromOpfs]);
 
   // Clean up object URLs + workers on unmount.
   useEffect(() => {
@@ -315,6 +327,17 @@ export function useLibrary() {
     return readOriginal(id);
   }, []);
 
+  const exportBackup = useCallback(() => exportLibrary(itemsRef.current), []);
+
+  const importBackup = useCallback(
+    async (file: File) => {
+      const count = await importLibrary(file);
+      await restoreFromOpfs(false);
+      return count;
+    },
+    [restoreFromOpfs]
+  );
+
   const state: LibraryState = {
     items,
     importing,
@@ -333,5 +356,7 @@ export function useLibrary() {
     removeItem,
     removeMany,
     replaceItem,
+    exportBackup,
+    importBackup,
   };
 }

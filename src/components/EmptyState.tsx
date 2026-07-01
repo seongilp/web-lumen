@@ -1,8 +1,9 @@
-import { FolderOpen, Zap, HardDriveDownload, Cpu, Lock } from "lucide-react";
+import { FolderOpen, Zap, HardDriveDownload, Cpu, Lock, Upload } from "lucide-react";
 import { Button } from "./ui/button";
 
 interface EmptyStateProps {
   onPick: () => void;
+  onImport: () => void;
   canPick: boolean;
 }
 
@@ -12,7 +13,7 @@ const features = [
   { icon: Zap, title: "가상 스크롤", desc: "수천 장도 60fps로 부드럽게" },
 ];
 
-export function EmptyState({ onPick, canPick }: EmptyStateProps) {
+export function EmptyState({ onPick, onImport, canPick }: EmptyStateProps) {
   return (
     <div className="animate-fade-up flex h-full w-full flex-col items-center justify-center px-6">
       <div className="grid size-24 place-items-center rounded-[2rem] bg-gradient-to-br from-sky-500/20 to-indigo-500/10 ring-1 ring-slate-700/70 shadow-2xl shadow-sky-500/10">
@@ -26,12 +27,18 @@ export function EmptyState({ onPick, canPick }: EmptyStateProps) {
         이미지 폴더를 창 안으로 끌어다 놓으면, 초고속 썸네일 뷰어가 즉시 동작합니다.
       </p>
 
-      {canPick && (
-        <Button size="lg" className="mt-7" onClick={onPick}>
-          <FolderOpen />
-          폴더 선택
+      <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+        {canPick && (
+          <Button size="lg" onClick={onPick}>
+            <FolderOpen />
+            폴더 선택
+          </Button>
+        )}
+        <Button size="lg" variant="secondary" onClick={onImport}>
+          <Upload />
+          백업 불러오기
         </Button>
-      )}
+      </div>
 
       <div className="mt-12 grid w-full max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3">
         {features.map((f) => (

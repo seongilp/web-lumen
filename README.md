@@ -31,6 +31,7 @@ WASM으로 디코딩한 썸네일이 깔린 그리드(좌), OPFS에서 풀해상
 | **정렬·분류·즐겨찾기** | 날짜/이름/크기/해상도 정렬, 폴더·방향·즐겨찾기 필터. (`src/lib/view.ts`, `src/components/ControlBar.tsx`) |
 | **중복 제거** | 콘텐츠 서명(동일 파일) + WASM dHash 지각 해시(유사 이미지) 감지. (`src/lib/dedup.ts`) |
 | **편집** | 회전·반전·크롭 + 밝기/대비/채도 보정. 저장 시 OPFS 원본 교체 + 썸네일/해시 재생성. (`src/components/Editor.tsx`) |
+| **백업/복원** | 라이브러리(메타+원본+썸네일)를 단일 `.wasmi` 파일로 내보내고 다시 불러오기. 다른 브라우저·기기로 이전 가능. (`src/lib/backup.ts`) |
 
 파이프라인: `드롭 → createImageBitmap(워커) → OffscreenCanvas → WASM 박스필터 → webp 인코딩 → OPFS 저장 + 그리드 표시`
 
@@ -48,6 +49,12 @@ WASM으로 디코딩한 썸네일이 깔린 그리드(좌), OPFS에서 풀해상
 
 React 19 · Tailwind v4 · shadcn 스타일 컴포넌트 · lucide 아이콘. slate 팔레트 위주의
 토스/애플 느낌 — 글래스 툴바, 스프링 이징, blur-up 플레이스홀더, 부드러운 라이트박스.
+
+## 테스트
+
+```bash
+npm test           # Vitest — 순수 로직 + WASM(thumb.wasm 직접 검증) + 컴포넌트
+```
 
 ## 실행
 
