@@ -4,7 +4,7 @@ import {
   Trash2,
   Images,
   Loader2,
-  Cpu,
+  Zap,
   Download,
   Upload,
   HardDrive,
@@ -49,12 +49,16 @@ export function Toolbar({
   return (
     <header className="glass sticky top-0 z-30 border-b border-slate-800/70">
       <div className="flex items-center gap-3 px-5 py-3">
-        <div className="grid size-9 place-items-center rounded-xl bg-sky-500/15 ring-1 ring-sky-400/30">
-          <Cpu className="size-5 text-sky-300" />
-        </div>
+        <a
+          href={import.meta.env.BASE_URL}
+          className="grid size-9 place-items-center rounded-xl bg-sky-500/15 ring-1 ring-sky-400/30 transition-transform duration-200 ease-spring hover:scale-105"
+          title="wasmi 홈"
+        >
+          <Zap className="size-5 text-sky-300" />
+        </a>
         <div className="mr-auto min-w-0">
           <div className="flex items-center gap-2">
-            <h1 className="text-sm font-bold tracking-tight text-slate-50">Flash</h1>
+            <h1 className="text-sm font-bold tracking-tight text-slate-50">wasmi</h1>
             <span className="rounded-md bg-slate-800/80 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
               WASM · OPFS
             </span>
