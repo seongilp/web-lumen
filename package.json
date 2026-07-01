@@ -9,7 +9,7 @@
     "dev": "npm run asbuild && vite",
     "build": "npm run asbuild && tsc -b && vite build",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "npm run asbuild && vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
