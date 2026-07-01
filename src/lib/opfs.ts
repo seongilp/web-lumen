@@ -103,6 +103,18 @@ export async function writeManifest(items: ManifestItem[]): Promise<void> {
   await writable.close();
 }
 
+/** Delete a single image's thumbnail + original from OPFS. */
+export async function deleteItem(id: string): Promise<void> {
+  for (const dir of [THUMBS, ORIGINALS]) {
+    try {
+      const d = await subdir(dir);
+      await d.removeEntry(id);
+    } catch {
+      /* already gone — ignore */
+    }
+  }
+}
+
 /** Delete everything we manage. Used by the "Clear library" action. */
 export async function clearAll(): Promise<void> {
   const r = await root();

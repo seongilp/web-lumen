@@ -75,9 +75,12 @@ export async function collectFromDataTransfer(dt: DataTransfer): Promise<Collect
     return out;
   }
 
-  // Fallback: plain files without directory structure.
+  // Fallback: plain files. Preserve folder structure when the browser exposes
+  // it via webkitRelativePath (e.g. <input webkitdirectory>).
   for (const file of Array.from(dt.files)) {
-    if (isImage(file.name, file.type)) out.push({ file, relPath: file.name });
+    if (isImage(file.name, file.type)) {
+      out.push({ file, relPath: file.webkitRelativePath || file.name });
+    }
   }
   return out;
 }

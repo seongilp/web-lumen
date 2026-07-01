@@ -6,6 +6,7 @@ import { Thumb } from "./Thumb";
 interface GridProps {
   items: ImageItem[];
   onOpen: (id: string) => void;
+  onToggleFavorite: (id: string) => void;
 }
 
 const GAP = 14;
@@ -16,7 +17,7 @@ const OVERSCAN_ROWS = 3;
  * Windowed square grid. Only the rows intersecting the viewport (plus a small
  * overscan) are mounted, so a 10,000-image folder scrolls at 60fps.
  */
-export function Grid({ items, onOpen }: GridProps) {
+export function Grid({ items, onOpen, onToggleFavorite }: GridProps) {
   const { ref: outerRef, size } = useElementSize<HTMLDivElement>();
   const [scrollTop, setScrollTop] = useState(0);
   const rafRef = useRef(0);
@@ -63,7 +64,12 @@ export function Grid({ items, onOpen }: GridProps) {
               transform: `translate(${col * (cell + GAP)}px, ${row * rowHeight}px)`,
             }}
           >
-            <Thumb item={item} size={cell} onOpen={onOpen} />
+            <Thumb
+              item={item}
+              size={cell}
+              onOpen={onOpen}
+              onToggleFavorite={onToggleFavorite}
+            />
           </div>
         );
       }

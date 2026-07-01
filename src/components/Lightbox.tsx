@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, X, Maximize2, Minimize2 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Maximize2,
+  Minimize2,
+  Star,
+  Trash2,
+} from "lucide-react";
 import type { ImageItem } from "@/lib/types";
 import { Button } from "./ui/button";
 import { cn, formatBytes, intToRgb } from "@/lib/utils";
@@ -10,6 +18,8 @@ interface LightboxProps {
   onClose: () => void;
   onNavigate: (index: number) => void;
   loadOriginal: (id: string) => Promise<File | null>;
+  onToggleFavorite: (id: string) => void;
+  onDelete: (id: string) => void;
 }
 
 export function Lightbox({
@@ -18,6 +28,8 @@ export function Lightbox({
   onClose,
   onNavigate,
   loadOriginal,
+  onToggleFavorite,
+  onDelete,
 }: LightboxProps) {
   const item = items[index];
   const [fullUrl, setFullUrl] = useState<string | null>(null);
@@ -82,6 +94,23 @@ export function Lightbox({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onToggleFavorite(item.id)}
+            title={item.favorite ? "즐겨찾기 해제" : "즐겨찾기"}
+          >
+            <Star className={cn(item.favorite && "fill-amber-300 text-amber-300")} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onDelete(item.id)}
+            title="삭제"
+            className="hover:text-rose-300"
+          >
+            <Trash2 />
+          </Button>
           <Button
             variant="ghost"
             size="icon"

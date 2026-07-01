@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ThumbPool } from "./thumb-pool";
 import {
   clearAll,
+  deleteItem,
   ensurePersistent,
   estimateUsage,
   opfsSupported,
@@ -40,6 +41,7 @@ function toManifest(item: ImageItem): ManifestItem {
     width: item.width,
     height: item.height,
     dominant: item.dominant,
+    favorite: item.favorite,
   };
 }
 
@@ -71,6 +73,14 @@ export function useLibrary() {
     indexRef.current = map;
   }, []);
 
+  // Persist the manifest of every successfully-decoded item (favorites included).
+  const persistManifest = useCallback(async () => {
+    const manifest = itemsRef.current
+      .filter((it) => it.status === "ready")
+      .map(toManifest);
+    await writeManifest(manifest);
+  }, []);
+
   // Coalesce many per-thumbnail updates into one render per frame.
   const scheduleFlush = useCallback(() => {
     if (flushScheduled.current) return;
@@ -100,6 +110,7 @@ export function useLibrary() {
         const thumb = await readThumb(m.id);
         restored.push({
           ...m,
+          favorite: m.favorite ?? false,
           status: thumb ? "ready" : "pending",
           thumbUrl: thumb ? URL.createObjectURL(thumb) : undefined,
         });
@@ -175,6 +186,7 @@ export function useLibrary() {
             height: 0,
             dominant: 0x1e293b, // slate-800 placeholder
             status: "pending",
+            favorite: false,
           },
           file,
         });
@@ -205,15 +217,40 @@ export function useLibrary() {
       );
 
       // Persist the manifest of everything that decoded successfully.
-      const manifest = itemsRef.current
-        .filter((it) => it.status === "ready")
-        .map(toManifest);
-      await writeManifest(manifest);
+      await persistManifest();
 
       setImporting(false);
       refreshUsage();
     },
-    [applyResult, getPool, reindex, refreshUsage]
+    [applyResult, getPool, persistManifest, reindex, refreshUsage]
+  );
+
+  const toggleFavorite = useCallback(
+    (id: string) => {
+      const idx = indexRef.current.get(id);
+      if (idx === undefined) return;
+      const prev = itemsRef.current[idx];
+      itemsRef.current[idx] = { ...prev, favorite: !prev.favorite };
+      setItems(itemsRef.current.slice());
+      persistManifest();
+    },
+    [persistManifest]
+  );
+
+  const removeItem = useCallback(
+    async (id: string) => {
+      const idx = indexRef.current.get(id);
+      if (idx === undefined) return;
+      const target = itemsRef.current[idx];
+      if (target.thumbUrl) URL.revokeObjectURL(target.thumbUrl);
+      itemsRef.current = itemsRef.current.filter((it) => it.id !== id);
+      reindex();
+      setItems(itemsRef.current.slice());
+      await deleteItem(id);
+      await persistManifest();
+      refreshUsage();
+    },
+    [persistManifest, reindex, refreshUsage]
   );
 
   const clear = useCallback(async () => {
@@ -240,5 +277,5 @@ export function useLibrary() {
     supported,
     restoredCount,
   };
-  return { ...state, importFiles, clear, openOriginal };
+  return { ...state, importFiles, clear, openOriginal, toggleFavorite, removeItem };
 }

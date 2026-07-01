@@ -1,15 +1,16 @@
 import { memo, useState } from "react";
-import { ImageOff } from "lucide-react";
+import { ImageOff, Star } from "lucide-react";
 import type { ImageItem } from "@/lib/types";
-import { intToRgb } from "@/lib/utils";
+import { cn, intToRgb } from "@/lib/utils";
 
 interface ThumbProps {
   item: ImageItem;
   size: number;
   onOpen: (id: string) => void;
+  onToggleFavorite: (id: string) => void;
 }
 
-function ThumbBase({ item, size, onOpen }: ThumbProps) {
+function ThumbBase({ item, size, onOpen, onToggleFavorite }: ThumbProps) {
   const [loaded, setLoaded] = useState(false);
   const bg = intToRgb(item.dominant || 0x1e293b);
 
@@ -48,6 +49,29 @@ function ThumbBase({ item, size, onOpen }: ThumbProps) {
           {item.name}
         </p>
       </div>
+
+      {/* Favorite toggle — always visible when starred, otherwise on hover */}
+      {item.status === "ready" && (
+        <span
+          role="button"
+          tabIndex={-1}
+          aria-label={item.favorite ? "즐겨찾기 해제" : "즐겨찾기"}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite(item.id);
+          }}
+          className={cn(
+            "absolute right-2 top-2 grid size-7 place-items-center rounded-full text-white/90 backdrop-blur-sm transition-all duration-200 ease-spring hover:scale-110",
+            item.favorite
+              ? "bg-black/30 opacity-100"
+              : "bg-black/25 opacity-0 group-hover:opacity-100"
+          )}
+        >
+          <Star
+            className={cn("size-4", item.favorite && "fill-amber-300 text-amber-300")}
+          />
+        </span>
+      )}
     </button>
   );
 }

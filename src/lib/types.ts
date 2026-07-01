@@ -13,6 +13,8 @@ export interface ImageItem {
   /** Dominant color packed as 0x00RRGGBB, used for blur-up placeholder. */
   dominant: number;
   status: ImageStatus;
+  /** User-starred. Persisted to the manifest. */
+  favorite: boolean;
   /** Object URL for the thumbnail (grid). Created on the main thread. */
   thumbUrl?: string;
 }
@@ -27,6 +29,8 @@ export interface ManifestItem {
   width: number;
   height: number;
   dominant: number;
+  /** Optional for backward compatibility with older manifests. */
+  favorite?: boolean;
 }
 
 /** Message sent to the thumbnail worker. */
