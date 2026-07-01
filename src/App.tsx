@@ -509,6 +509,7 @@ export default function App() {
           onToggleFavorite={lib.toggleFavorite}
           onDelete={handleDelete}
           onEdit={setEditingId}
+          onRename={lib.renameItem}
           canDeleteReal={lib.hasHandle(activeItems[lightboxIndex].id)}
           paused={editingId !== null}
         />

@@ -470,6 +470,38 @@ export function useLibrary() {
     [rootFor]
   );
 
+  // Rename an image. For picker imports, also renames the real file on disk
+  // (FileSystemFileHandle.move). The OPFS id stays stable.
+  const renameItem = useCallback(
+    async (id: string, rawName: string) => {
+      const idx = indexRef.current.get(id);
+      if (idx === undefined) return;
+      const prev = itemsRef.current[idx];
+      const name = rawName.trim();
+      if (!name || name === prev.name || name.includes("/")) return;
+
+      const h = handlesRef.current.get(id);
+      if (h) {
+        try {
+          const fh = (await h.parent.getFileHandle(h.name)) as unknown as {
+            move(name: string): Promise<void>;
+          };
+          await fh.move(name);
+          h.name = name;
+        } catch {
+          /* move() unsupported or denied — fall back to display-only rename */
+        }
+      }
+
+      const segs = prev.relPath.split("/");
+      segs[segs.length - 1] = name;
+      itemsRef.current[idx] = { ...prev, name, relPath: segs.join("/") };
+      setItems(itemsRef.current.slice());
+      persistManifest();
+    },
+    [persistManifest]
+  );
+
   const removeItem = useCallback(
     async (id: string) => {
       const idx = indexRef.current.get(id);
@@ -565,6 +597,7 @@ export function useLibrary() {
     addToCollection,
     removeFromCollection,
     setFavoriteMany,
+    renameItem,
     hasHandle,
   };
 }

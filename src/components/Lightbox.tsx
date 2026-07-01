@@ -8,10 +8,14 @@ import {
   Star,
   Trash2,
   Pencil,
+  Play,
+  Pause,
 } from "lucide-react";
 import type { ImageItem } from "@/lib/types";
 import { Button } from "./ui/button";
 import { cn, formatBytes, intToRgb } from "@/lib/utils";
+
+const SLIDESHOW_MS = 3500;
 
 interface LightboxProps {
   items: ImageItem[];
@@ -22,6 +26,7 @@ interface LightboxProps {
   onToggleFavorite: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
+  onRename: (id: string, name: string) => void;
   /** True when deleting removes the real file on disk (picker imports). */
   canDeleteReal?: boolean;
   /** When true (e.g. the editor is open), keyboard shortcuts are suspended. */
@@ -37,12 +42,16 @@ export function Lightbox({
   onToggleFavorite,
   onDelete,
   onEdit,
+  onRename,
   canDeleteReal = false,
   paused = false,
 }: LightboxProps) {
   const item = items[index];
   const [fullUrl, setFullUrl] = useState<string | null>(null);
   const [zoomed, setZoomed] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
   const urlRef = useRef<string | null>(null);
 
   // Load the full-resolution original from OPFS for the current item.
@@ -81,12 +90,31 @@ export function Lightbox({
     [index, items.length, onNavigate]
   );
 
+  // Slideshow auto-advance.
+  useEffect(() => {
+    if (!playing || items.length < 2) return;
+    const t = setInterval(() => onNavigate((index + 1) % items.length), SLIDESHOW_MS);
+    return () => clearInterval(t);
+  }, [playing, index, items.length, onNavigate]);
+
+  const commitRename = () => {
+    if (nameDraft.trim()) onRename(item.id, nameDraft);
+    setRenaming(false);
+  };
+
   useEffect(() => {
     if (paused) return;
     const onKey = (e: KeyboardEvent) => {
+      // Ignore shortcuts while typing (e.g. renaming).
+      const tag = (document.activeElement as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
       switch (e.key) {
         case "Escape":
           onClose();
+          break;
+        case "p":
+        case "P":
+          setPlaying((v) => !v);
           break;
         case "ArrowRight":
           go(1);
@@ -120,12 +148,45 @@ export function Lightbox({
       {/* Top bar */}
       <header className="z-10 flex items-center justify-between gap-4 px-5 py-4">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-slate-100">{item.name}</p>
+          {renaming ? (
+            <input
+              autoFocus
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitRename();
+                if (e.key === "Escape") setRenaming(false);
+              }}
+              className="w-64 max-w-full rounded-md border border-slate-600 bg-slate-900 px-2 py-0.5 text-sm text-slate-100 outline-none focus:border-sky-500"
+            />
+          ) : (
+            <p
+              className="cursor-text truncate text-sm font-semibold text-slate-100 hover:text-white"
+              title="더블클릭해서 이름 변경"
+              onDoubleClick={() => {
+                setNameDraft(item.name);
+                setRenaming(true);
+              }}
+            >
+              {item.name}
+            </p>
+          )}
           <p className="truncate text-xs text-slate-400">
             {item.width}×{item.height} · {formatBytes(item.size)} · {index + 1} / {items.length}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {items.length > 1 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setPlaying((v) => !v)}
+              title={playing ? "일시정지 (P)" : "슬라이드쇼 (P)"}
+            >
+              {playing ? <Pause /> : <Play />}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
