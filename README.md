@@ -28,8 +28,21 @@ WASM으로 디코딩한 썸네일이 깔린 그리드(좌), OPFS에서 풀해상
 | **OPFS** | 썸네일·원본·매니페스트를 Origin Private File System에 저장. 재방문 시 매니페스트만 읽어 그리드를 즉시 복원하고, 원본은 라이트박스에서 스트림으로 연다. (`src/lib/opfs.ts`) |
 | **폴더 드롭** | `webkitGetAsEntry`로 중첩 폴더까지 재귀 수집. File System Access `showDirectoryPicker` 폴백 지원. (`src/lib/collect.ts`) |
 | **초고속 렌더** | CPU 코어 수만큼의 워커 풀 + 윈도잉(가상 스크롤) 그리드. 수천 장도 60fps. (`src/lib/thumb-pool.ts`, `src/components/Grid.tsx`) |
+| **정렬·분류·즐겨찾기** | 날짜/이름/크기/해상도 정렬, 폴더·방향·즐겨찾기 필터. (`src/lib/view.ts`, `src/components/ControlBar.tsx`) |
+| **중복 제거** | 콘텐츠 서명(동일 파일) + WASM dHash 지각 해시(유사 이미지) 감지. (`src/lib/dedup.ts`) |
+| **편집** | 회전·반전·크롭 + 밝기/대비/채도 보정. 저장 시 OPFS 원본 교체 + 썸네일/해시 재생성. (`src/components/Editor.tsx`) |
 
 파이프라인: `드롭 → createImageBitmap(워커) → OffscreenCanvas → WASM 박스필터 → webp 인코딩 → OPFS 저장 + 그리드 표시`
+
+### 라이트박스 단축키
+
+| 키 | 동작 |
+| --- | --- |
+| `←` `→` | 이전 / 다음 |
+| `Space` | 즐겨찾기 토글 |
+| `E` | 편집 |
+| `Del` / `Backspace` | 삭제 |
+| `Esc` | 닫기 |
 
 ## 디자인
 

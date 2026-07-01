@@ -243,6 +243,30 @@ export function useLibrary() {
     [persistManifest]
   );
 
+  // Replace an item's pixels with an edited version: overwrite OPFS original,
+  // regenerate thumbnail + hashes + dimensions, keeping the same id/name/favorite.
+  const replaceItem = useCallback(
+    async (id: string, file: File) => {
+      const idx = indexRef.current.get(id);
+      if (idx === undefined) return;
+      const prev = itemsRef.current[idx];
+      if (prev.thumbUrl) URL.revokeObjectURL(prev.thumbUrl);
+      itemsRef.current[idx] = {
+        ...prev,
+        size: file.size,
+        status: "pending",
+        thumbUrl: undefined,
+      };
+      setItems(itemsRef.current.slice());
+
+      const res = await getPool().process({ id, file, persistOriginal: true });
+      applyResult(res);
+      await persistManifest();
+      refreshUsage();
+    },
+    [applyResult, getPool, persistManifest, refreshUsage]
+  );
+
   const removeItem = useCallback(
     async (id: string) => {
       const idx = indexRef.current.get(id);
@@ -308,5 +332,6 @@ export function useLibrary() {
     toggleFavorite,
     removeItem,
     removeMany,
+    replaceItem,
   };
 }

@@ -7,6 +7,7 @@ import {
   Minimize2,
   Star,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import type { ImageItem } from "@/lib/types";
 import { Button } from "./ui/button";
@@ -20,6 +21,9 @@ interface LightboxProps {
   loadOriginal: (id: string) => Promise<File | null>;
   onToggleFavorite: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit: (id: string) => void;
+  /** When true (e.g. the editor is open), keyboard shortcuts are suspended. */
+  paused?: boolean;
 }
 
 export function Lightbox({
@@ -30,6 +34,8 @@ export function Lightbox({
   loadOriginal,
   onToggleFavorite,
   onDelete,
+  onEdit,
+  paused = false,
 }: LightboxProps) {
   const item = items[index];
   const [fullUrl, setFullUrl] = useState<string | null>(null);
@@ -55,7 +61,8 @@ export function Lightbox({
     return () => {
       alive = false;
     };
-  }, [item.id, loadOriginal]);
+    // item.hash changes when the image is edited → reload the new original.
+  }, [item.id, item.hash, loadOriginal]);
 
   useEffect(() => {
     return () => {
@@ -72,14 +79,36 @@ export function Lightbox({
   );
 
   useEffect(() => {
+    if (paused) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowRight") go(1);
-      else if (e.key === "ArrowLeft") go(-1);
+      switch (e.key) {
+        case "Escape":
+          onClose();
+          break;
+        case "ArrowRight":
+          go(1);
+          break;
+        case "ArrowLeft":
+          go(-1);
+          break;
+        case "Delete":
+        case "Backspace":
+          e.preventDefault();
+          onDelete(item.id);
+          break;
+        case " ": // Space → 즐겨찾기
+          e.preventDefault();
+          onToggleFavorite(item.id);
+          break;
+        case "e":
+        case "E":
+          onEdit(item.id);
+          break;
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [go, onClose]);
+  }, [paused, go, onClose, onDelete, onToggleFavorite, onEdit, item.id]);
 
   const bg = intToRgb(item.dominant || 0x0f172a);
 
@@ -98,15 +127,23 @@ export function Lightbox({
             variant="ghost"
             size="icon"
             onClick={() => onToggleFavorite(item.id)}
-            title={item.favorite ? "즐겨찾기 해제" : "즐겨찾기"}
+            title={item.favorite ? "즐겨찾기 해제 (Space)" : "즐겨찾기 (Space)"}
           >
             <Star className={cn(item.favorite && "fill-amber-300 text-amber-300")} />
           </Button>
           <Button
             variant="ghost"
             size="icon"
+            onClick={() => onEdit(item.id)}
+            title="편집 (E)"
+          >
+            <Pencil />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => onDelete(item.id)}
-            title="삭제"
+            title="삭제 (Del)"
             className="hover:text-rose-300"
           >
             <Trash2 />

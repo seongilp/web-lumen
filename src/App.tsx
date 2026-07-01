@@ -8,6 +8,7 @@ import { EmptyState } from "./components/EmptyState";
 import { RestoreBanner } from "./components/RestoreBanner";
 import { DuplicateBar } from "./components/DuplicateBar";
 import { Lightbox } from "./components/Lightbox";
+import { Editor } from "./components/Editor";
 import { useLibrary } from "./lib/useLibrary";
 import { ThumbPool } from "./lib/thumb-pool";
 import { applyView, listFolders, ALL_FOLDERS, type ViewState } from "./lib/view";
@@ -34,6 +35,7 @@ export default function App() {
   const [view, setView] = useState<ViewState>(DEFAULT_VIEW);
   const [dupMode, setDupMode] = useState(false);
   const [dupKind, setDupKind] = useState<DupMode>("exact");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const canPick = directoryPickerSupported();
 
   // Surface the trust banner once a restored-from-cache library is detected.
@@ -100,6 +102,7 @@ export default function App() {
     [activeItems]
   );
 
+  const editItem = editingId ? lib.items.find((it) => it.id === editingId) : undefined;
   const hasItems = lib.items.length > 0;
   const noResults = hasItems && !dupMode && visibleItems.length === 0;
 
@@ -200,6 +203,20 @@ export default function App() {
           loadOriginal={lib.openOriginal}
           onToggleFavorite={lib.toggleFavorite}
           onDelete={lib.removeItem}
+          onEdit={setEditingId}
+          paused={editingId !== null}
+        />
+      )}
+
+      {editingId && editItem && (
+        <Editor
+          item={editItem}
+          loadOriginal={lib.openOriginal}
+          onSave={async (file) => {
+            await lib.replaceItem(editingId, file);
+            setEditingId(null);
+          }}
+          onClose={() => setEditingId(null)}
         />
       )}
     </Dropzone>
