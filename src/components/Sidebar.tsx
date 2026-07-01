@@ -31,6 +31,9 @@ interface SidebarProps {
   onDeleteCollection: (id: string) => void;
   onDropToFavorite: (itemIds: string[]) => void;
   onDropToCollection: (collectionId: string, itemIds: string[]) => void;
+  /** Mobile drawer state. */
+  open?: boolean;
+  onClose?: () => void;
 }
 
 const DRAG_TYPE = "application/x-wasmi-id";
@@ -61,8 +64,14 @@ export function Sidebar({
   onDeleteCollection,
   onDropToFavorite,
   onDropToCollection,
+  open = false,
+  onClose,
 }: SidebarProps) {
   const active = selectionKey(selection);
+  const select = (s: Selection) => {
+    onSelect(s);
+    onClose?.(); // close the drawer on mobile after choosing
+  };
   const [dropKey, setDropKey] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
@@ -102,21 +111,36 @@ export function Sidebar({
   });
 
   return (
-    <aside className="hidden w-60 shrink-0 flex-col overflow-y-auto border-r border-slate-800/70 bg-slate-950/40 p-3 md:flex">
+    <>
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={onClose}
+          aria-hidden
+        />
+      )}
+      <aside
+        className={cn(
+          "w-60 shrink-0 flex-col overflow-y-auto border-r border-slate-800/70 p-3",
+          open
+            ? "fixed inset-y-0 left-0 z-50 flex bg-slate-950 shadow-2xl shadow-black/60 md:static md:z-auto md:bg-slate-950/40 md:shadow-none"
+            : "hidden bg-slate-950/40 md:flex"
+        )}
+      >
       <Section title="라이브러리">
         <Row
           icon={Images}
           label="전체"
           count={counts.all}
           active={active === "all"}
-          onClick={() => onSelect({ kind: "all" })}
+          onClick={() => select({ kind: "all" })}
         />
         <Row
           icon={Star}
           label="즐겨찾기"
           count={counts.favorites}
           active={active === "favorites"}
-          onClick={() => onSelect({ kind: "favorites" })}
+          onClick={() => select({ kind: "favorites" })}
           starred
           dropTarget={dropKey === "favorites"}
           {...dropProps("favorites", onDropToFavorite)}
@@ -134,7 +158,7 @@ export function Sidebar({
                 label={f.label}
                 count={counts.folders[f.value] ?? 0}
                 active={active === key}
-                onClick={() => onSelect({ kind: "folder", value: f.value })}
+                onClick={() => select({ kind: "folder", value: f.value })}
               />
             );
           })}
@@ -206,7 +230,7 @@ export function Sidebar({
                   label={c.name}
                   count={counts.collections[c.id] ?? 0}
                   active={active === key}
-                  onClick={() => onSelect({ kind: "collection", id: c.id })}
+                  onClick={() => select({ kind: "collection", id: c.id })}
                   onDoubleClick={() => {
                     setEditingId(c.id);
                     setEditName(c.name);
@@ -231,7 +255,8 @@ export function Sidebar({
           );
         })}
       </Section>
-    </aside>
+      </aside>
+    </>
   );
 }
 

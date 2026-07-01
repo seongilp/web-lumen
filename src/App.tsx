@@ -51,6 +51,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [metaNotice, setMetaNotice] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const anchorRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canPick = directoryPickerSupported();
@@ -359,6 +360,7 @@ export default function App() {
             onExportFull={handleExportFull}
             onExportMeta={handleExportMeta}
             onImport={handleImportClick}
+            onToggleSidebar={() => setSidebarOpen((o) => !o)}
             busy={busy}
             workerCount={ThumbPool.defaultSize()}
           />
@@ -377,6 +379,8 @@ export default function App() {
               onDeleteCollection={lib.deleteCollection}
               onDropToFavorite={onDropToFavorite}
               onDropToCollection={onDropToCollection}
+              open={sidebarOpen}
+              onClose={() => setSidebarOpen(false)}
             />
           )}
 

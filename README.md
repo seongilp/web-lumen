@@ -32,7 +32,7 @@ WASM으로 디코딩한 썸네일이 깔린 그리드(좌), OPFS에서 풀해상
 | **다중 선택 · 일괄 작업** | 체크박스/⌘·Shift-클릭으로 여러 장 선택 → 컬렉션 담기·즐겨찾기·삭제 일괄 처리, 여러 장 한 번에 드래그. (`src/components/SelectionBar.tsx`) |
 | **정렬·분류·즐겨찾기** | 날짜/이름/크기/해상도 정렬, 방향 필터. (`src/lib/view.ts`, `src/components/ControlBar.tsx`) |
 | **중복 제거** | 콘텐츠 서명(동일 파일) + WASM dHash 지각 해시(유사 이미지) 감지. (`src/lib/dedup.ts`) |
-| **원본 삭제** | **폴더 선택**(File System Access)으로 열면 확인 후 **디스크 원본까지 영구 삭제**. 드래그드롭은 브라우저 제한상 목록·캐시에서만 제거(원본 유지). (`src/lib/collect.ts`, `useLibrary.removeItem`) |
+| **원본 삭제** | **폴더 선택**(File System Access)으로 열면 확인 후 **디스크 원본까지 영구 삭제**. 디렉토리 핸들을 IndexedDB에 저장해 **새로고침 후에도** 원본 삭제 가능(권한 재요청). 드래그드롭은 목록·캐시에서만 제거. (`src/lib/collect.ts`, `src/lib/handle-store.ts`) |
 | **편집** | 회전·반전·크롭 + 밝기/대비/채도 보정. 저장 시 OPFS 원본 교체 + 썸네일/해시 재생성. (`src/components/Editor.tsx`) |
 | **백업/복원** | **전체 백업**(메타+원본+썸네일, 완전 복원) 또는 **메타만 백업**(즐겨찾기·정리 상태만, 수십 GB 라이브러리도 수 KB). 메타 복원 후 폴더 재드롭 시 id 매칭으로 즐겨찾기 자동 복원. (`src/lib/backup.ts`) |
 

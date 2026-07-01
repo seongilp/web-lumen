@@ -9,6 +9,7 @@ import {
   Upload,
   HardDrive,
   FileJson,
+  PanelLeft,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn, formatBytes } from "@/lib/utils";
@@ -25,6 +26,7 @@ interface ToolbarProps {
   onExportFull: () => void;
   onExportMeta: () => void;
   onImport: () => void;
+  onToggleSidebar: () => void;
   busy: boolean;
   workerCount: number;
 }
@@ -40,6 +42,7 @@ export function Toolbar({
   onExportFull,
   onExportMeta,
   onImport,
+  onToggleSidebar,
   busy,
   workerCount,
 }: ToolbarProps) {
@@ -49,6 +52,13 @@ export function Toolbar({
   return (
     <header className="glass sticky top-0 z-30 border-b border-slate-800/70">
       <div className="flex items-center gap-3 px-5 py-3">
+        <button
+          onClick={onToggleSidebar}
+          title="사이드바"
+          className="grid size-9 shrink-0 place-items-center rounded-xl text-slate-300 transition-colors hover:bg-slate-800/70 md:hidden"
+        >
+          <PanelLeft className="size-5" />
+        </button>
         <a
           href={import.meta.env.BASE_URL}
           className="grid size-9 place-items-center rounded-xl bg-sky-500/15 ring-1 ring-sky-400/30 transition-transform duration-200 ease-spring hover:scale-105"

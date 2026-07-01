@@ -15,6 +15,7 @@ import {
 } from "./opfs";
 import type { Collected } from "./collect";
 import { exportLibrary, exportMeta as buildMetaBackup, importLibrary } from "./backup";
+import { clearRoots, getRoots, putRoot } from "./handle-store";
 import { fileKey } from "./utils";
 import type { Collection, ImageItem, ManifestItem, ThumbResponse } from "./types";
 
@@ -72,6 +73,8 @@ export function useLibrary() {
   const handlesRef = useRef<Map<string, { parent: FileSystemDirectoryHandle; name: string }>>(
     new Map()
   );
+  // Picked root handles (name → handle), persisted so delete works after reload.
+  const rootsRef = useRef<Map<string, FileSystemDirectoryHandle>>(new Map());
   const poolRef = useRef<ThumbPool | null>(null);
   const flushScheduled = useRef(false);
 
@@ -112,9 +115,14 @@ export function useLibrary() {
   // first mount and after importing a backup.
   const restoreFromOpfs = useCallback(
     async (markRestored: boolean) => {
-      const [manifest, cols] = await Promise.all([readManifest(), readCollections()]);
+      const [manifest, cols, roots] = await Promise.all([
+        readManifest(),
+        readCollections(),
+        getRoots(),
+      ]);
       collectionsRef.current = cols;
       setCollections(cols);
+      rootsRef.current = new Map(roots.map((r) => [r.name, r]));
       const restored: ImageItem[] = [];
       for (const m of manifest) {
         const thumb = await readThumb(m.id);
@@ -201,11 +209,13 @@ export function useLibrary() {
       const newItems: ImageItem[] = [];
       const jobs: { id: string; file: File }[] = [];
       const seen = new Set<string>();
-      for (const { file, relPath, parent } of collected) {
+      const newRoots = new Map<string, FileSystemDirectoryHandle>();
+      for (const { file, relPath, parent, root } of collected) {
         const id = fileKey(relPath, file.size, file.lastModified);
         if (seen.has(id)) continue; // dup within this drop
         seen.add(id);
         if (parent) handlesRef.current.set(id, { parent, name: file.name });
+        if (root && !rootsRef.current.has(root.name)) newRoots.set(root.name, root);
         const existingIdx = indexRef.current.get(id);
         if (existingIdx !== undefined) {
           if (itemsRef.current[existingIdx].status === "ready") continue; // already have pixels
@@ -227,6 +237,12 @@ export function useLibrary() {
           });
           jobs.push({ id, file });
         }
+      }
+
+      // Persist any newly-picked roots so on-disk delete survives reloads.
+      for (const [name, handle] of newRoots) {
+        rootsRef.current.set(name, handle);
+        putRoot(handle);
       }
 
       if (jobs.length === 0) return;
@@ -400,20 +416,59 @@ export function useLibrary() {
     [persistManifest]
   );
 
-  // Whether an item can be deleted from disk (imported via the picker).
-  const hasHandle = useCallback((id: string) => handlesRef.current.has(id), []);
+  // The picked root that owns an item (matched by the first path segment).
+  const rootFor = useCallback((id: string): FileSystemDirectoryHandle | undefined => {
+    const idx = indexRef.current.get(id);
+    if (idx === undefined) return undefined;
+    const first = itemsRef.current[idx].relPath.split("/")[0];
+    return rootsRef.current.get(first);
+  }, []);
+
+  // Whether an item can be deleted from disk (this session or via a saved root).
+  const hasHandle = useCallback(
+    (id: string) => handlesRef.current.has(id) || rootFor(id) !== undefined,
+    [rootFor]
+  );
 
   // Best-effort deletion of the real file on disk (File System Access).
-  const deleteRealFile = useCallback(async (id: string) => {
-    const h = handlesRef.current.get(id);
-    if (!h) return;
-    try {
-      await h.parent.removeEntry(h.name);
-    } catch {
-      /* permission denied or already gone */
-    }
-    handlesRef.current.delete(id);
-  }, []);
+  const deleteRealFile = useCallback(
+    async (id: string) => {
+      // Fast path: parent handle from the current session.
+      const h = handlesRef.current.get(id);
+      if (h) {
+        try {
+          await h.parent.removeEntry(h.name);
+        } catch {
+          /* denied or already gone */
+        }
+        handlesRef.current.delete(id);
+        return;
+      }
+      // Reload path: navigate from the persisted root, requesting permission.
+      const root = rootFor(id);
+      if (!root) return;
+      const idx = indexRef.current.get(id);
+      if (idx === undefined) return;
+      const seg = itemsRef.current[idx].relPath.split("/");
+      try {
+        const rw = { mode: "readwrite" as const };
+        const perm = root as unknown as {
+          queryPermission(o: typeof rw): Promise<PermissionState>;
+          requestPermission(o: typeof rw): Promise<PermissionState>;
+        };
+        let state = await perm.queryPermission(rw);
+        if (state !== "granted") state = await perm.requestPermission(rw);
+        if (state !== "granted") return;
+
+        let dir = root;
+        for (let i = 1; i < seg.length - 1; i++) dir = await dir.getDirectoryHandle(seg[i]);
+        await dir.removeEntry(seg[seg.length - 1]);
+      } catch {
+        /* denied or already gone */
+      }
+    },
+    [rootFor]
+  );
 
   const removeItem = useCallback(
     async (id: string) => {
@@ -460,6 +515,8 @@ export function useLibrary() {
     collectionsRef.current = [];
     setCollections([]);
     handlesRef.current.clear();
+    rootsRef.current.clear();
+    await clearRoots();
     await clearAll();
     refreshUsage();
   }, [reindex, refreshUsage]);
