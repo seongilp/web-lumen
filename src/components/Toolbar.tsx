@@ -61,23 +61,23 @@ export function Toolbar({
         </button>
         <a
           href={import.meta.env.BASE_URL}
-          className="grid size-9 place-items-center rounded-xl bg-sky-500/15 ring-1 ring-sky-400/30 transition-transform duration-200 ease-spring hover:scale-105"
+          className="grid size-9 shrink-0 place-items-center rounded-xl bg-sky-500/15 ring-1 ring-sky-400/30 transition-transform duration-200 ease-spring hover:scale-105"
           title="wasmi 홈"
         >
           <Zap className="size-5 text-sky-300" />
         </a>
         <div className="mr-auto min-w-0">
           <div className="flex items-center gap-2">
-            <h1 className="text-sm font-bold tracking-tight text-slate-50">wasmi</h1>
-            <span className="rounded-md bg-slate-800/80 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
+            <h1 className="shrink-0 text-sm font-bold tracking-tight text-slate-50">wasmi</h1>
+            <span className="hidden shrink-0 whitespace-nowrap rounded-md bg-slate-800/80 px-1.5 py-0.5 text-[10px] font-medium text-slate-400 sm:inline-block">
               WASM · OPFS
             </span>
           </div>
-          <p className="flex items-center gap-1.5 text-xs text-slate-400">
-            <Images className="size-3" />
+          <p className="flex items-center gap-1.5 whitespace-nowrap text-xs text-slate-400">
+            <Images className="size-3 shrink-0" />
             {count.toLocaleString()}장
-            <span className="text-slate-600">·</span>
-            {formatBytes(usage)}
+            <span className="hidden text-slate-600 sm:inline">·</span>
+            <span className="hidden sm:inline">{formatBytes(usage)}</span>
             <span className="hidden text-slate-600 sm:inline">·</span>
             <span className="hidden sm:inline">워커 {workerCount}</span>
           </p>
