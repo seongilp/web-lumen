@@ -45,9 +45,9 @@ function ThumbBase({
       draggable={item.status === "ready"}
       onDragStart={(e) => {
         const ids = dragIds && dragIds.length > 1 ? dragIds : [item.id];
-        e.dataTransfer.setData("application/x-wasmi-id", item.id);
+        e.dataTransfer.setData("application/x-lumen-id", item.id);
         if (ids.length > 1) {
-          e.dataTransfer.setData("application/x-wasmi-ids", JSON.stringify(ids));
+          e.dataTransfer.setData("application/x-lumen-ids", JSON.stringify(ids));
         }
         e.dataTransfer.effectAllowed = "copy";
       }}

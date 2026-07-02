@@ -38,8 +38,8 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-const DRAG_TYPE = "application/x-wasmi-id";
-const DRAG_TYPE_MULTI = "application/x-wasmi-ids";
+const DRAG_TYPE = "application/x-lumen-id";
+const DRAG_TYPE_MULTI = "application/x-lumen-ids";
 
 function readDragIds(dt: DataTransfer): string[] {
   const multi = dt.getData(DRAG_TYPE_MULTI);

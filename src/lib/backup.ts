@@ -3,7 +3,7 @@
 // machine where OPFS started empty.
 //
 // Container layout:
-//   "WASMI1\n"                       7-byte magic
+//   "LUMEN1\n"                       7-byte magic
 //   uint32 LE                        header JSON length
 //   header JSON (utf-8)              { v, entries: [{ meta, thumb:{off,len}, orig:{off,len} }] }
 //   data section                     all thumb + original bytes, at their offsets
@@ -20,7 +20,7 @@ import {
   writeThumb,
 } from "./opfs";
 
-const MAGIC = "WASMI1\n";
+const MAGIC = "LUMEN1\n";
 const MAGIC_LEN = MAGIC.length;
 
 export interface BackupEntry {
@@ -74,7 +74,7 @@ export function packContainer(entries: BackupEntry[]): Blob {
 export function unpackContainer(buffer: ArrayBuffer): BackupEntry[] {
   const bytes = new Uint8Array(buffer);
   const magic = new TextDecoder().decode(bytes.subarray(0, MAGIC_LEN));
-  if (magic !== MAGIC) throw new Error("올바른 wasmi 백업 파일이 아닙니다.");
+  if (magic !== MAGIC) throw new Error("올바른 lumen 백업 파일이 아닙니다.");
 
   const headerLen = new DataView(buffer, MAGIC_LEN, 4).getUint32(0, true);
   const headerStart = MAGIC_LEN + 4;
@@ -101,7 +101,7 @@ export function unpackContainer(buffer: ArrayBuffer): BackupEntry[] {
  */
 export function exportMeta(items: ImageItem[]): Blob {
   const entries = items.filter((it) => it.status === "ready").map(toMeta);
-  return new Blob([JSON.stringify({ wasmi: "meta", v: 1, entries })], {
+  return new Blob([JSON.stringify({ lumen: "meta", v: 1, entries })], {
     type: "application/json",
   });
 }
@@ -150,14 +150,14 @@ export async function importLibrary(
   }
 
   // Metadata-only JSON backup.
-  let parsed: { wasmi?: string; entries?: ManifestItem[] };
+  let parsed: { lumen?: string; entries?: ManifestItem[] };
   try {
     parsed = JSON.parse(new TextDecoder().decode(bytes));
   } catch {
-    throw new Error("올바른 wasmi 백업 파일이 아닙니다.");
+    throw new Error("올바른 lumen 백업 파일이 아닙니다.");
   }
-  if (parsed?.wasmi !== "meta" || !Array.isArray(parsed.entries)) {
-    throw new Error("올바른 wasmi 백업 파일이 아닙니다.");
+  if (parsed?.lumen !== "meta" || !Array.isArray(parsed.entries)) {
+    throw new Error("올바른 lumen 백업 파일이 아닙니다.");
   }
   for (const m of parsed.entries) byId.set(m.id, m);
   await writeManifest([...byId.values()]);

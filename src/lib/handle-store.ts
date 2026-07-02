@@ -3,7 +3,7 @@
 // can store it directly. Permission still has to be re-granted via a user
 // gesture after reload (handled at delete time).
 
-const DB_NAME = "wasmi";
+const DB_NAME = "web-lumen";
 const STORE = "roots";
 
 function supported(): boolean {

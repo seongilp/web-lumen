@@ -49,7 +49,7 @@ function initWasm(): Promise<WasmExports> {
         },
       },
     };
-    // Respect Vite's base path (e.g. "/wasmi/") so the .wasm resolves both on
+    // Respect Vite's base path (e.g. "/web-lumen/") so the .wasm resolves both on
     // localhost ("/") and under the GitHub Pages project subpath.
     const url = new URL(`${import.meta.env.BASE_URL}wasm/thumb.wasm`, self.location.href).href;
     let instance: WebAssembly.Instance;

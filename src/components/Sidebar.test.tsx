@@ -54,7 +54,7 @@ describe("Sidebar", () => {
   it("adds a dropped image to a collection", () => {
     const { onDropToCollection } = setup();
     const dataTransfer = {
-      types: ["application/x-wasmi-id"],
+      types: ["application/x-lumen-id"],
       getData: () => "img-42",
       dropEffect: "",
     };
@@ -66,7 +66,7 @@ describe("Sidebar", () => {
   it("favorites a dropped image", () => {
     const { onDropToFavorite } = setup();
     const dataTransfer = {
-      types: ["application/x-wasmi-id"],
+      types: ["application/x-lumen-id"],
       getData: () => "img-7",
       dropEffect: "",
     };

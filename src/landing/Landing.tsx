@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const REPO = "https://github.com/seongilp/wasmi";
+const REPO = "https://github.com/seongilp/web-lumen";
 const BASE = import.meta.env.BASE_URL;
 const APP_URL = `${BASE}app/`;
 const shot = (name: string) => `${BASE}${name}`;
@@ -68,7 +68,7 @@ export function Landing() {
           <div className="grid size-8 place-items-center rounded-lg bg-sky-500/15 ring-1 ring-sky-400/30">
             <Zap className="size-4 text-sky-300" />
           </div>
-          <span className="text-sm font-bold tracking-tight">wasmi</span>
+          <span className="text-sm font-bold tracking-tight">web-lumen</span>
           <nav className="mr-auto ml-4 hidden items-center gap-5 text-sm text-slate-400 sm:flex">
             <a href="#features" className="transition-colors hover:text-slate-100">특징</a>
             <a href="#how" className="transition-colors hover:text-slate-100">동작 원리</a>
@@ -141,12 +141,12 @@ export function Landing() {
                 <span className="size-3 rounded-full bg-amber-400/70" />
                 <span className="size-3 rounded-full bg-emerald-400/70" />
                 <span className="ml-3 truncate text-xs text-slate-500">
-                  seongilp.github.io/wasmi/app
+                  seongilp.github.io/web-lumen/app
                 </span>
               </div>
               <img
                 src={shot("shot-grid.png")}
-                alt="wasmi 그리드 화면"
+                alt="web-lumen 그리드 화면"
                 className="w-full"
                 loading="eager"
               />
@@ -256,11 +256,11 @@ export function Landing() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-8 text-xs text-slate-500 sm:flex-row">
           <div className="flex items-center gap-2">
             <Zap className="size-4 text-sky-400" />
-            <span className="font-semibold text-slate-400">wasmi</span>
+            <span className="font-semibold text-slate-400">web-lumen</span>
             <span>· WASM × OPFS image viewer</span>
           </div>
           <a href={REPO} className="transition-colors hover:text-slate-300">
-            github.com/seongilp/wasmi
+            github.com/seongilp/web-lumen
           </a>
         </div>
       </footer>

@@ -200,9 +200,9 @@ export default function App() {
 
   const handleDrop = useCallback(
     async (dt: DataTransfer) => {
-      // A single .wasmi file → restore a backup; otherwise import images.
+      // A single .lumen file → restore a backup; otherwise import images.
       const dropped = Array.from(dt.files);
-      const backup = dropped.find((f) => f.name.endsWith(".wasmi"));
+      const backup = dropped.find((f) => f.name.endsWith(".lumen"));
       if (backup && dropped.length === 1) {
         importBackupFile(backup);
         return;
@@ -231,14 +231,14 @@ export default function App() {
   const handleExportFull = useCallback(async () => {
     setBusy(true);
     try {
-      download(await lib.exportBackup(), `wasmi-backup-${stamp()}.wasmi`);
+      download(await lib.exportBackup(), `web-lumen-backup-${stamp()}.lumen`);
     } finally {
       setBusy(false);
     }
   }, [lib]);
 
   const handleExportMeta = useCallback(() => {
-    download(lib.exportMetaBackup(), `wasmi-meta-${stamp()}.wasmi`);
+    download(lib.exportMetaBackup(), `web-lumen-meta-${stamp()}.lumen`);
   }, [lib]);
 
   const handleImportClick = useCallback(() => fileInputRef.current?.click(), []);
@@ -405,7 +405,7 @@ export default function App() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".wasmi,application/octet-stream"
+        accept=".lumen,application/octet-stream"
         className="hidden"
         onChange={onFileChange}
       />

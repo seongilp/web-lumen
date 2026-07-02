@@ -49,7 +49,7 @@ describe("backup container", () => {
 
   it("rejects a file without the magic header", async () => {
     const bad = new Blob([new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8])]);
-    await expect(bad.arrayBuffer().then(unpackContainer)).rejects.toThrow(/wasmi/);
+    await expect(bad.arrayBuffer().then(unpackContainer)).rejects.toThrow(/lumen/);
   });
 
   it("produces an empty container for no entries", async () => {
@@ -80,7 +80,7 @@ describe("exportMeta", () => {
     const blob = exportMeta([item({ favorite: true, hash: "h1" })]);
     expect(blob.type).toBe("application/json");
     const parsed = JSON.parse(await blob.text());
-    expect(parsed.wasmi).toBe("meta");
+    expect(parsed.lumen).toBe("meta");
     expect(parsed.entries).toHaveLength(1);
     expect(parsed.entries[0].favorite).toBe(true);
     expect(parsed.entries[0].hash).toBe("h1");
