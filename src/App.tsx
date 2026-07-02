@@ -87,6 +87,20 @@ export default function App() {
   );
   const folders = useMemo(() => listFolders(lib.items), [lib.items]);
   const dup = useMemo(() => findDuplicates(lib.items, dupKind), [lib.items, dupKind]);
+  const missingThumbs = useMemo(
+    () => lib.items.filter((it) => it.status !== "ready" && !it.trashed).length,
+    [lib.items]
+  );
+
+  const healThumbnails = useCallback(async () => {
+    setBusy(true);
+    try {
+      const n = await lib.regenerateThumbnails();
+      setToast({ message: n > 0 ? `썸네일 ${n}개를 복구했어요.` : "복구할 원본을 찾지 못했어요." });
+    } finally {
+      setBusy(false);
+    }
+  }, [lib]);
 
   // Per-section counts for the sidebar.
   const counts = useMemo(() => {
@@ -457,6 +471,23 @@ export default function App() {
                 density={density}
                 onDensityChange={setDensity}
               />
+            )}
+
+            {hasItems && missingThumbs > 0 && !inTrash && (
+              <div className="animate-fade-up flex items-center gap-3 border-b border-amber-500/20 bg-amber-500/10 px-5 py-2.5">
+                <AlertTriangle className="size-4 shrink-0 text-amber-300" />
+                <p className="min-w-0 flex-1 text-xs leading-relaxed text-slate-200">
+                  썸네일 <span className="font-semibold text-amber-200">{missingThumbs}개</span>가 저장되지 않았어요.
+                  <span className="text-slate-400"> 원본에서 다시 생성합니다.</span>
+                </p>
+                <button
+                  onClick={healThumbnails}
+                  disabled={busy}
+                  className="shrink-0 rounded-lg bg-amber-500/90 px-2.5 py-1 text-xs font-medium text-slate-900 hover:bg-amber-400 disabled:opacity-50"
+                >
+                  {busy ? "복구 중…" : "썸네일 복구"}
+                </button>
+              </div>
             )}
 
             {metaNotice !== null && (

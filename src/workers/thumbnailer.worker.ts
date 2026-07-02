@@ -179,16 +179,21 @@ self.onmessage = async (e: MessageEvent<ThumbRequest>) => {
       readExif(file),
     ]);
 
-    // Persist results to OPFS for instant reloads. Persistence is best-effort:
-    // if OPFS is unavailable we still return the thumbnail for display.
+    // Persist the thumbnail to OPFS for instant reloads. Retry once on a
+    // transient failure (e.g. write contention during a big burst).
     try {
       await writeThumb(id, thumb);
-      if (persistOriginal) {
-        // Fire-and-forget: don't block thumbnail delivery on the larger write.
-        writeOriginalStream(id, file).catch(() => void 0);
-      }
     } catch {
-      /* no OPFS — in-memory only */
+      try {
+        await new Promise((r) => setTimeout(r, 50));
+        await writeThumb(id, thumb);
+      } catch {
+        /* no OPFS — in-memory only */
+      }
+    }
+    if (persistOriginal) {
+      // Fire-and-forget: don't block thumbnail delivery on the larger write.
+      writeOriginalStream(id, file).catch(() => void 0);
     }
 
     const res: ThumbResponse = {

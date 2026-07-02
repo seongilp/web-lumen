@@ -634,6 +634,30 @@ export function useLibrary() {
     [resolveParent]
   );
 
+  // Regenerate thumbnails for items missing them (e.g. an interrupted import),
+  // reading originals from disk handle or OPFS. Must be called from a gesture
+  // (picker permission re-request). Returns how many were healed.
+  const regenerateThumbnails = useCallback(async (): Promise<number> => {
+    const targets = itemsRef.current.filter(
+      (it) => it.status !== "ready" && !it.trashed
+    );
+    if (targets.length === 0) return 0;
+    const pool = getPool();
+    let healed = 0;
+    await Promise.all(
+      targets.map(async (it) => {
+        const file = await openOriginal(it.id);
+        if (!file) return;
+        const res = await pool.process({ id: it.id, file, persistOriginal: false });
+        applyResult(res);
+        if (res.ok) healed++;
+      })
+    );
+    await persistManifest();
+    refreshUsage();
+    return healed;
+  }, [applyResult, getPool, openOriginal, persistManifest, refreshUsage]);
+
   const exportBackup = useCallback(() => exportLibrary(itemsRef.current), []);
   const exportMetaBackup = useCallback(() => buildMetaBackup(itemsRef.current), []);
 
@@ -677,6 +701,7 @@ export function useLibrary() {
     renameItem,
     trashItems,
     restoreItems,
+    regenerateThumbnails,
     hasHandle,
   };
 }
