@@ -658,8 +658,14 @@ export function useLibrary() {
     return healed;
   }, [applyResult, getPool, openOriginal, persistManifest, refreshUsage]);
 
-  const exportBackup = useCallback(() => exportLibrary(itemsRef.current), []);
-  const exportMetaBackup = useCallback(() => buildMetaBackup(itemsRef.current), []);
+  const exportBackup = useCallback(
+    () => exportLibrary(itemsRef.current, collectionsRef.current),
+    []
+  );
+  const exportMetaBackup = useCallback(
+    () => buildMetaBackup(itemsRef.current, collectionsRef.current),
+    []
+  );
 
   const importBackup = useCallback(
     async (file: File) => {

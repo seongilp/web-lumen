@@ -5,16 +5,18 @@
 // Container layout:
 //   "LUMEN1\n"                       7-byte magic
 //   uint32 LE                        header JSON length
-//   header JSON (utf-8)              { v, entries: [{ meta, thumb:{off,len}, orig:{off,len} }] }
+//   header JSON (utf-8)              { v, collections, entries:[{ meta, thumb, orig }] }
 //   data section                     all thumb + original bytes, at their offsets
 //
 // Offsets in the header are relative to the start of the data section.
 
-import type { ImageItem, ManifestItem } from "./types";
+import type { Collection, ImageItem, ManifestItem } from "./types";
 import {
+  readCollections,
   readManifest,
   readOriginal,
   readThumb,
+  writeCollections,
   writeManifest,
   writeOriginal,
   writeThumb,
@@ -29,6 +31,7 @@ export interface BackupEntry {
   orig: Uint8Array;
 }
 
+// Preserve the full manifest shape — collections, trash state and EXIF included.
 function toMeta(it: ImageItem): ManifestItem {
   return {
     id: it.id,
@@ -43,11 +46,17 @@ function toMeta(it: ImageItem): ManifestItem {
     favorite: it.favorite,
     hash: it.hash,
     phash: it.phash,
+    collections: it.collections,
+    trashed: it.trashed,
+    takenAt: it.takenAt,
+    camera: it.camera,
+    lat: it.lat,
+    lon: it.lon,
   };
 }
 
-/** Pure: serialize entries into the container Blob. */
-export function packContainer(entries: BackupEntry[]): Blob {
+/** Pure: serialize entries + collections into the container Blob. */
+export function packContainer(entries: BackupEntry[], collections: Collection[] = []): Blob {
   const parts: BlobPart[] = [];
   const index: unknown[] = [];
   let off = 0;
@@ -61,7 +70,9 @@ export function packContainer(entries: BackupEntry[]): Blob {
     off += e.thumb.byteLength + e.orig.byteLength;
   }
 
-  const headerBytes = new TextEncoder().encode(JSON.stringify({ v: 1, entries: index }));
+  const headerBytes = new TextEncoder().encode(
+    JSON.stringify({ v: 1, collections, entries: index })
+  );
   const lenBytes = new Uint8Array(4);
   new DataView(lenBytes.buffer).setUint32(0, headerBytes.byteLength, true);
 
@@ -70,8 +81,13 @@ export function packContainer(entries: BackupEntry[]): Blob {
   });
 }
 
-/** Pure: parse a container back into entries. Throws on a bad file. */
-export function unpackContainer(buffer: ArrayBuffer): BackupEntry[] {
+export interface UnpackedContainer {
+  entries: BackupEntry[];
+  collections: Collection[];
+}
+
+/** Pure: parse a container back into entries + collections. Throws on a bad file. */
+export function unpackContainer(buffer: ArrayBuffer): UnpackedContainer {
   const bytes = new Uint8Array(buffer);
   const magic = new TextDecoder().decode(bytes.subarray(0, MAGIC_LEN));
   if (magic !== MAGIC) throw new Error("올바른 lumen 백업 파일이 아닙니다.");
@@ -83,7 +99,7 @@ export function unpackContainer(buffer: ArrayBuffer): BackupEntry[] {
   );
   const dataStart = headerStart + headerLen;
 
-  return (header.entries as Array<{
+  const entries = (header.entries as Array<{
     meta: ManifestItem;
     thumb: { off: number; len: number };
     orig: { off: number; len: number };
@@ -92,25 +108,29 @@ export function unpackContainer(buffer: ArrayBuffer): BackupEntry[] {
     thumb: bytes.subarray(dataStart + e.thumb.off, dataStart + e.thumb.off + e.thumb.len),
     orig: bytes.subarray(dataStart + e.orig.off, dataStart + e.orig.off + e.orig.len),
   }));
+  return { entries, collections: Array.isArray(header.collections) ? header.collections : [] };
 }
 
 /**
- * Metadata-only backup: a small JSON of the manifest (favorites, folders,
- * dimensions, hashes) with NO image bytes. Restore this, then re-drop the
- * source folder — matching ids re-attach favorites without the huge payload.
+ * Metadata-only backup: a small JSON of the manifest (favorites, collections,
+ * trash, EXIF, hashes) with NO image bytes. Restore this, then re-drop the
+ * source folder — matching ids re-attach organization without the huge payload.
  */
-export function exportMeta(items: ImageItem[]): Blob {
+export function exportMeta(items: ImageItem[], collections: Collection[] = []): Blob {
+  // Trashed items are still "ready", so trash state is preserved.
   const entries = items.filter((it) => it.status === "ready").map(toMeta);
-  return new Blob([JSON.stringify({ lumen: "meta", v: 1, entries })], {
+  return new Blob([JSON.stringify({ lumen: "meta", v: 1, collections, entries })], {
     type: "application/json",
   });
 }
 
 /** Read the whole library out of OPFS into a downloadable backup Blob. */
-export async function exportLibrary(items: ImageItem[]): Promise<Blob> {
-  const ready = items.filter((it) => it.status === "ready");
+export async function exportLibrary(
+  items: ImageItem[],
+  collections: Collection[] = []
+): Promise<Blob> {
   const entries: BackupEntry[] = [];
-  for (const it of ready) {
+  for (const it of items.filter((i) => i.status === "ready")) {
     const [thumb, orig] = await Promise.all([readThumb(it.id), readOriginal(it.id)]);
     entries.push({
       meta: toMeta(it),
@@ -118,7 +138,16 @@ export async function exportLibrary(items: ImageItem[]): Promise<Blob> {
       orig: orig ? new Uint8Array(await orig.arrayBuffer()) : new Uint8Array(0),
     });
   }
-  return packContainer(entries);
+  return packContainer(entries, collections);
+}
+
+// Merge imported collections into existing OPFS collections (by id).
+async function mergeCollections(incoming: Collection[]): Promise<void> {
+  if (!incoming.length) return;
+  const existing = await readCollections();
+  const byId = new Map(existing.map((c) => [c.id, c]));
+  for (const c of incoming) byId.set(c.id, c);
+  await writeCollections([...byId.values()]);
 }
 
 export type ImportMode = "full" | "meta";
@@ -138,7 +167,7 @@ export async function importLibrary(
   const byId = new Map<string, ManifestItem>(existing.map((m) => [m.id, m]));
 
   if (head === MAGIC) {
-    const entries = unpackContainer(buffer);
+    const { entries, collections } = unpackContainer(buffer);
     for (const e of entries) {
       // .slice() yields a right-sized, standalone ArrayBuffer for OPFS to write.
       if (e.thumb.byteLength) await writeThumb(e.meta.id, e.thumb.slice().buffer);
@@ -146,11 +175,12 @@ export async function importLibrary(
       byId.set(e.meta.id, e.meta);
     }
     await writeManifest([...byId.values()]);
+    await mergeCollections(collections);
     return { count: entries.length, mode: "full" };
   }
 
   // Metadata-only JSON backup.
-  let parsed: { lumen?: string; entries?: ManifestItem[] };
+  let parsed: { lumen?: string; entries?: ManifestItem[]; collections?: Collection[] };
   try {
     parsed = JSON.parse(new TextDecoder().decode(bytes));
   } catch {
@@ -161,5 +191,6 @@ export async function importLibrary(
   }
   for (const m of parsed.entries) byId.set(m.id, m);
   await writeManifest([...byId.values()]);
+  await mergeCollections(Array.isArray(parsed.collections) ? parsed.collections : []);
   return { count: parsed.entries.length, mode: "meta" };
 }

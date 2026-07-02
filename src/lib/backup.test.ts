@@ -28,7 +28,7 @@ const entries: BackupEntry[] = [
 describe("backup container", () => {
   it("round-trips metadata and bytes", async () => {
     const blob = packContainer(entries);
-    const restored = unpackContainer(await blob.arrayBuffer());
+    const { entries: restored } = unpackContainer(await blob.arrayBuffer());
 
     expect(restored).toHaveLength(2);
     expect(restored[0].meta).toEqual(entries[0].meta);
@@ -38,11 +38,17 @@ describe("backup container", () => {
     expect([...restored[1].orig]).toEqual([9, 10]);
   });
 
+  it("round-trips collection definitions", async () => {
+    const cols = [{ id: "c1", name: "여름" }, { id: "c2", name: "겨울" }];
+    const { collections } = unpackContainer(await packContainer(entries, cols).arrayBuffer());
+    expect(collections).toEqual(cols);
+  });
+
   it("handles empty thumb/original slices", async () => {
     const e: BackupEntry[] = [
       { meta: meta("c"), thumb: new Uint8Array(0), orig: new Uint8Array([1]) },
     ];
-    const restored = unpackContainer(await packContainer(e).arrayBuffer());
+    const { entries: restored } = unpackContainer(await packContainer(e).arrayBuffer());
     expect(restored[0].thumb.byteLength).toBe(0);
     expect([...restored[0].orig]).toEqual([1]);
   });
@@ -53,8 +59,9 @@ describe("backup container", () => {
   });
 
   it("produces an empty container for no entries", async () => {
-    const restored = unpackContainer(await packContainer([]).arrayBuffer());
-    expect(restored).toEqual([]);
+    const { entries, collections } = unpackContainer(await packContainer([]).arrayBuffer());
+    expect(entries).toEqual([]);
+    expect(collections).toEqual([]);
   });
 });
 
@@ -91,5 +98,22 @@ describe("exportMeta", () => {
   it("excludes items that are not ready", () => {
     const blob = exportMeta([item({ status: "pending" })]);
     return blob.text().then((t) => expect(JSON.parse(t).entries).toHaveLength(0));
+  });
+
+  it("preserves collections, trash and EXIF", async () => {
+    const cols = [{ id: "c1", name: "여름" }];
+    const blob = exportMeta(
+      [item({ collections: ["c1"], trashed: true, takenAt: 123, camera: "SONY", lat: 1, lon: 2 })],
+      cols
+    );
+    const parsed = JSON.parse(await blob.text());
+    expect(parsed.collections).toEqual(cols);
+    const e = parsed.entries[0];
+    expect(e.collections).toEqual(["c1"]);
+    expect(e.trashed).toBe(true);
+    expect(e.takenAt).toBe(123);
+    expect(e.camera).toBe("SONY");
+    expect(e.lat).toBe(1);
+    expect(e.lon).toBe(2);
   });
 });

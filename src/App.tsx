@@ -58,7 +58,7 @@ export default function App() {
   const [toast, setToast] = useState<
     { message: string; action?: { label: string; run: () => void } } | null
   >(null);
-  const anchorRef = useRef<number | null>(null);
+  const anchorRef = useRef<string | null>(null);
 
   // Auto-dismiss the toast.
   useEffect(() => {
@@ -88,7 +88,7 @@ export default function App() {
   const folders = useMemo(() => listFolders(lib.items), [lib.items]);
   const dup = useMemo(() => findDuplicates(lib.items, dupKind), [lib.items, dupKind]);
   const missingThumbs = useMemo(
-    () => lib.items.filter((it) => it.status !== "ready" && !it.trashed).length,
+    () => lib.items.filter((it) => it.status === "pending" && !it.trashed).length,
     [lib.items]
   );
 
@@ -220,7 +220,8 @@ export default function App() {
     a.href = url;
     a.download = name;
     a.click();
-    URL.revokeObjectURL(url);
+    // Revoke later — revoking in the same tick can abort large downloads.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
   const stamp = () => {
     const d = new Date();
@@ -291,10 +292,16 @@ export default function App() {
   const handleSelect = useCallback(
     (id: string, e: React.MouseEvent) => {
       const index = activeItems.findIndex((it) => it.id === id);
+      if (index < 0) return; // item vanished between render and click
       setSelectedIds((prev) => {
         const next = new Set(prev);
-        if (e.shiftKey && anchorRef.current !== null) {
-          const [a, b] = [anchorRef.current, index].sort((x, y) => x - y);
+        // Anchor is an id so it stays valid even if the list re-sorts/filters.
+        const anchorIdx =
+          e.shiftKey && anchorRef.current
+            ? activeItems.findIndex((it) => it.id === anchorRef.current)
+            : -1;
+        if (anchorIdx >= 0) {
+          const [a, b] = [anchorIdx, index].sort((x, y) => x - y);
           for (let i = a; i <= b; i++) next.add(activeItems[i].id);
         } else if (next.has(id)) {
           next.delete(id);
@@ -303,7 +310,7 @@ export default function App() {
         }
         return next;
       });
-      anchorRef.current = index;
+      anchorRef.current = id;
     },
     [activeItems]
   );
@@ -473,7 +480,7 @@ export default function App() {
               />
             )}
 
-            {hasItems && missingThumbs > 0 && !inTrash && (
+            {hasItems && missingThumbs > 0 && !inTrash && !lib.importing && metaNotice === null && (
               <div className="animate-fade-up flex items-center gap-3 border-b border-amber-500/20 bg-amber-500/10 px-5 py-2.5">
                 <AlertTriangle className="size-4 shrink-0 text-amber-300" />
                 <p className="min-w-0 flex-1 text-xs leading-relaxed text-slate-200">

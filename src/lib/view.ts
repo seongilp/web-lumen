@@ -92,6 +92,7 @@ export function listFolders(items: ImageItem[]): { value: string; label: string 
   const set = new Set<string>();
   let hasRoot = false;
   for (const it of items) {
+    if (it.trashed) continue; // trashed-only folders shouldn't appear
     const f = topFolder(it.relPath);
     if (f) set.add(f);
     else hasRoot = true;
