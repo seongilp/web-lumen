@@ -17,7 +17,7 @@ import type { Collected } from "./collect";
 import { exportLibrary, exportMeta as buildMetaBackup, importLibrary } from "./backup";
 import { clearRoots, getRoots, putRoot } from "./handle-store";
 import { ensureReadPermission, type Permissioned } from "./permissions";
-import { loadFaceDetector, detectFaceCount, setFaceScanEnabled } from "./face";
+import { createFaceScanner, setFaceScanEnabled } from "./face";
 import { fileKey } from "./utils";
 import type { Collection, ImageItem, ManifestItem, ThumbResponse } from "./types";
 
@@ -741,29 +741,29 @@ export function useLibrary() {
       );
       if (targets.length === 0) return 0;
 
-      const detector = await loadFaceDetector();
+      const scanner = await createFaceScanner();
       setFaceScanEnabled();
       let done = 0;
       let withFace = 0;
-      for (const it of targets) {
-        if (opts?.signal?.()) break;
-        // Decode the thumbnail. A bad/missing thumbnail is skipped as "no face".
+      let failed = false;
+
+      // Decode one thumbnail → detect in the worker → record. Decodes run
+      // concurrently (the pool below) so the worker is never left idle.
+      const scanOne = async (it: (typeof targets)[number]) => {
         let bmp: ImageBitmap | null = null;
         try {
           const thumb = await readThumb(it.id);
           bmp = thumb ? await createImageBitmap(thumb) : null;
         } catch {
-          bmp = null;
+          bmp = null; // bad/missing thumbnail → treat as no face
         }
-        // Run detection. If the model itself can't run (e.g. no WebGL), let the
-        // error propagate so the whole scan fails loudly instead of silently
-        // marking every photo as face-free.
         let count = 0;
         if (bmp) {
-          try {
-            count = detectFaceCount(detector, bmp);
-          } finally {
-            bmp.close();
+          count = await scanner.detect(bmp); // worker owns + closes the bitmap
+          if (count < 0) {
+            // Model can't run (e.g. no WebGL) → abort loudly, don't mark 0.
+            failed = true;
+            return;
           }
         }
         const idx = indexRef.current.get(it.id);
@@ -773,16 +773,30 @@ export function useLibrary() {
         if (count > 0) withFace++;
         done++;
         opts?.onProgress?.(done, targets.length);
-        // Flush to UI + disk in batches so the grid updates and progress
-        // survives a reload mid-scan.
-        if (done % 24 === 0) {
-          setItems(itemsRef.current.slice());
+        if (done % 32 === 0) {
+          setItems(itemsRef.current.slice()); // let badges appear as we go
           await persistManifest();
-          await new Promise((r) => setTimeout(r, 0));
         }
+      };
+
+      try {
+        // Bounded pipeline: several decodes in flight, one worker detecting.
+        const CONCURRENCY = 4;
+        let next = 0;
+        const runLane = async () => {
+          while (next < targets.length && !failed && !opts?.signal?.()) {
+            await scanOne(targets[next++]);
+          }
+        };
+        await Promise.all(
+          Array.from({ length: Math.min(CONCURRENCY, targets.length) }, runLane)
+        );
+        if (failed) throw new Error("face detection unavailable");
+      } finally {
+        scanner.close();
+        setItems(itemsRef.current.slice());
+        await persistManifest();
       }
-      setItems(itemsRef.current.slice());
-      await persistManifest();
       return withFace;
     },
     [persistManifest]
