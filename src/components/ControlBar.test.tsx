@@ -59,6 +59,13 @@ describe("ControlBar", () => {
     expect(onChange).toHaveBeenCalledWith({ orientation: "portrait" });
   });
 
+  it("changes the favorite filter", () => {
+    const { onChange } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "즐겨찾기 필터" }));
+    fireEvent.click(screen.getByText("즐겨찾기만"));
+    expect(onChange).toHaveBeenCalledWith({ favFilter: "fav" });
+  });
+
   it("shows the duplicate button only when duplicates exist and toggles it", () => {
     const { onToggleDup } = setup({ dupCount: 3 });
     fireEvent.click(screen.getByRole("button", { name: /중복/ }));

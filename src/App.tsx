@@ -39,6 +39,7 @@ const DEFAULT_VIEW: ViewState = {
   onlyFavorites: false,
   folder: ALL_FOLDERS,
   orientation: "all",
+  favFilter: "all",
 };
 
 export default function App() {

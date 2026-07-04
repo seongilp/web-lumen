@@ -93,6 +93,15 @@ describe("applyView – filtering", () => {
     expect(r[0].favorite).toBe(true);
   });
 
+  it("filters by favorite tri-state (all / fav / unfav)", () => {
+    const items = [makeItem({ favorite: true }), makeItem({ favorite: false })];
+    expect(applyView(items, { ...base, favFilter: "all" })).toHaveLength(2);
+    expect(applyView(items, { ...base, favFilter: "fav" }).map((i) => i.favorite)).toEqual([true]);
+    expect(applyView(items, { ...base, favFilter: "unfav" }).map((i) => i.favorite)).toEqual([
+      false,
+    ]);
+  });
+
   it("filters by folder and root", () => {
     const items = [
       makeItem({ relPath: "trip/a.png" }),

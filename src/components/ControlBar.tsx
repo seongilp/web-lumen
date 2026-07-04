@@ -9,13 +9,16 @@ import {
   Grid3x3,
   LayoutGrid,
   Grid2x2,
+  Star,
 } from "lucide-react";
 import { Dropdown, type DropdownOption } from "./ui/Dropdown";
 import { cn } from "@/lib/utils";
 import {
+  FAV_FILTER_LABELS,
   ORIENTATION_LABELS,
   SORT_LABELS,
   type Density,
+  type FavFilter,
   type Orientation,
   type SortKey,
   type ViewState,
@@ -47,6 +50,10 @@ const sortOptions: DropdownOption<SortKey>[] = (
 const orientationOptions: DropdownOption<Orientation>[] = (
   Object.keys(ORIENTATION_LABELS) as Orientation[]
 ).map((o) => ({ value: o, label: ORIENTATION_LABELS[o] }));
+
+const favOptions: DropdownOption<FavFilter>[] = (
+  Object.keys(FAV_FILTER_LABELS) as FavFilter[]
+).map((f) => ({ value: f, label: FAV_FILTER_LABELS[f] }));
 
 export function ControlBar({
   view,
@@ -94,6 +101,15 @@ export function ControlBar({
             </button>
           )}
         </div>
+
+        {/* Favorite filter */}
+        <Dropdown
+          value={view.favFilter ?? "all"}
+          options={favOptions}
+          onChange={(favFilter) => onChange({ favFilter })}
+          icon={Star}
+          ariaLabel="즐겨찾기 필터"
+        />
 
         {/* Orientation filter */}
         <Dropdown

@@ -5,6 +5,13 @@ import type { ImageItem } from "./types";
 
 export type SortKey = "taken" | "date" | "name" | "size" | "res";
 export type Density = "sm" | "md" | "lg";
+export type FavFilter = "all" | "fav" | "unfav";
+
+export const FAV_FILTER_LABELS: Record<FavFilter, string> = {
+  all: "전체",
+  fav: "즐겨찾기만",
+  unfav: "즐겨찾기 제외",
+};
 
 /** Grid density → target minimum cell width (px). */
 export const DENSITY_CELL: Record<Density, number> = { sm: 120, md: 168, lg: 240 };
@@ -23,6 +30,8 @@ export interface ViewState {
   query?: string;
   /** Show trashed (true) vs live (false/undefined) items. */
   trashed?: boolean;
+  /** Favorite filter (independent of the sidebar 즐겨찾기 selection). */
+  favFilter?: FavFilter;
 }
 
 export const ALL_FOLDERS = "";
@@ -127,6 +136,8 @@ export function applyView(items: ImageItem[], v: ViewState): ImageItem[] {
   const filtered = items.filter((it) => {
     if (Boolean(it.trashed) !== Boolean(v.trashed)) return false;
     if (v.onlyFavorites && !it.favorite) return false;
+    if (v.favFilter === "fav" && !it.favorite) return false;
+    if (v.favFilter === "unfav" && it.favorite) return false;
     if (v.collection && !it.collections.includes(v.collection)) return false;
     if (q && !it.name.toLowerCase().includes(q) && !it.camera?.toLowerCase().includes(q)) {
       return false;
