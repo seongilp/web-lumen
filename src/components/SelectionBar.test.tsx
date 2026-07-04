@@ -12,6 +12,7 @@ function setup(overrides = {}) {
     onAddToCollection: vi.fn(),
     onCreateAndAdd: vi.fn(),
     onAddTag: vi.fn(),
+    onShare: vi.fn(),
     onFavorite: vi.fn(),
     onDelete: vi.fn(),
     onRestore: vi.fn(),

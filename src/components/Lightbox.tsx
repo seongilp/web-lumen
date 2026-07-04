@@ -13,6 +13,7 @@ import {
   MapPin,
   Tag,
   Plus,
+  Share2,
 } from "lucide-react";
 import type { ImageItem } from "@/lib/types";
 import { Button } from "./ui/button";
@@ -32,6 +33,7 @@ interface LightboxProps {
   onRename: (id: string, name: string) => void;
   onAddTag: (id: string, tag: string) => void;
   onRemoveTag: (id: string, tag: string) => void;
+  onShare: (id: string) => void;
   /** True when deleting removes the real file on disk (picker imports). */
   canDeleteReal?: boolean;
   /** When true (e.g. the editor is open), keyboard shortcuts are suspended. */
@@ -50,6 +52,7 @@ export function Lightbox({
   onRename,
   onAddTag,
   onRemoveTag,
+  onShare,
   canDeleteReal = false,
   paused = false,
 }: LightboxProps) {
@@ -199,6 +202,14 @@ export function Lightbox({
               </Button>
             </a>
           )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onShare(item.id)}
+            title="공유"
+          >
+            <Share2 />
+          </Button>
           {items.length > 1 && (
             <Button
               variant="ghost"

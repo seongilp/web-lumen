@@ -9,6 +9,7 @@ import {
   RotateCcw,
   ListChecks,
   Tag,
+  Share2,
 } from "lucide-react";
 import type { Collection } from "@/lib/types";
 import { Button } from "./ui/button";
@@ -24,6 +25,7 @@ interface SelectionBarProps {
   onAddToCollection: (collectionId: string) => void;
   onCreateAndAdd: (name: string) => void;
   onAddTag: (tag: string) => void;
+  onShare: () => void;
   onFavorite: () => void;
   onDelete: () => void;
   onRestore: () => void;
@@ -41,6 +43,7 @@ export function SelectionBar({
   onAddToCollection,
   onCreateAndAdd,
   onAddTag,
+  onShare,
   onFavorite,
   onDelete,
   onRestore,
@@ -79,6 +82,10 @@ export function SelectionBar({
               onCreateAndAdd={onCreateAndAdd}
             />
             <TagMenu tags={tags} onAddTag={onAddTag} />
+            <Button variant="secondary" size="sm" onClick={onShare}>
+              <Share2 />
+              공유
+            </Button>
             <Button variant="secondary" size="sm" onClick={onFavorite}>
               <Star />
               즐겨찾기

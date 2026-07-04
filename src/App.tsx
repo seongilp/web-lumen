@@ -27,6 +27,7 @@ import {
   type Density,
 } from "./lib/view";
 import { findDuplicates, type DupMode } from "./lib/dedup";
+import { shareFiles, SHARE_MAX } from "./lib/share";
 import type { ThumbBadge } from "./components/Thumb";
 import {
   collectFromDataTransfer,
@@ -288,6 +289,39 @@ export default function App() {
     [lib]
   );
   const onDropToTag = useCallback((tag: string, ids: string[]) => lib.addTag(ids, tag), [lib]);
+
+  // Native share (Web Share API); download fallback for the single-image case.
+  const shareOne = useCallback(
+    async (id: string) => {
+      const file = await lib.openOriginal(id);
+      if (!file) return;
+      const r = await shareFiles([file], file.name);
+      if (r === "unsupported") {
+        download(file, file.name);
+        setToast({ message: "공유를 지원하지 않아 다운로드했어요." });
+      } else if (r === "error") {
+        setToast({ message: "공유에 실패했어요." });
+      }
+    },
+    [lib]
+  );
+
+  const shareMany = useCallback(
+    async (ids: string[]) => {
+      const picked = ids.slice(0, SHARE_MAX);
+      const files = (await Promise.all(picked.map((id) => lib.openOriginal(id)))).filter(
+        (f): f is File => f !== null
+      );
+      if (files.length === 0) return;
+      const r = await shareFiles(files, `${files.length}장`);
+      if (r === "unsupported") {
+        setToast({ message: "이 브라우저는 여러 장 공유를 지원하지 않아요." });
+      } else if (r === "shared" && ids.length > SHARE_MAX) {
+        setToast({ message: `한 번에 ${SHARE_MAX}장까지 공유했어요.` });
+      }
+    },
+    [lib]
+  );
   const resetView = useCallback(() => {
     setView(DEFAULT_VIEW);
     setSelection({ kind: "all" });
@@ -564,6 +598,7 @@ export default function App() {
                   lib.addTag(selArr, tag);
                   clearSelection();
                 }}
+                onShare={() => shareMany(selArr)}
                 onFavorite={() => {
                   lib.setFavoriteMany(selArr, true);
                   clearSelection();
@@ -668,6 +703,7 @@ export default function App() {
           onRename={lib.renameItem}
           onAddTag={(id, tag) => lib.addTag([id], tag)}
           onRemoveTag={lib.removeTag}
+          onShare={shareOne}
           canDeleteReal={lib.hasHandle(activeItems[lightboxIndex].id)}
           paused={editingId !== null}
         />
