@@ -117,15 +117,23 @@ export default function App() {
     () => applyView(lib.items, { ...effectiveView, faceFilter: "all" }),
     [lib.items, effectiveView]
   );
-  // Photos in the current scope not yet run through local face detection.
-  const unscanned = useMemo(
-    () => scopeItems.filter((it) => it.status === "ready" && it.faces === undefined).length,
-    [scopeItems]
-  );
+  // Face-scan tallies for the current scope.
+  const faceScope = useMemo(() => {
+    let unscanned = 0;
+    let scanned = 0;
+    for (const it of scopeItems) {
+      if (it.status !== "ready") continue;
+      if (it.faces === undefined) unscanned++;
+      else scanned++;
+    }
+    return { unscanned, scanned };
+  }, [scopeItems]);
+  const unscanned = faceScope.unscanned;
 
-  // Scan just the given ids (a folder/collection/favorites scope, or new imports).
+  // Scan the given ids (a folder/collection/favorites scope, or new imports).
+  // `all` re-scans even already-scanned photos.
   const runScan = useCallback(
-    async (announce: boolean, ids: string[]) => {
+    async (announce: boolean, ids: string[], all = false) => {
       if (ids.length === 0) return;
       setScanning(true);
       setScanProg({ done: 0, total: ids.length });
@@ -133,6 +141,7 @@ export default function App() {
       try {
         const withFace = await lib.scanFaces({
           ids,
+          all,
           onProgress: (done, total) => setScanProg({ done, total }),
         });
         if (announce) setToast({ message: `얼굴이 있는 사진 ${withFace}장을 찾았어요.` });
@@ -146,9 +155,14 @@ export default function App() {
     [lib]
   );
 
-  // Manual scan → only the photos currently in view (folder/collection/favorites).
+  // Scan only the not-yet-scanned photos in view.
   const scanFacesNow = useCallback(
     () => runScan(true, scopeItems.map((it) => it.id)),
+    [runScan, scopeItems]
+  );
+  // Re-scan every photo in view, even ones already scanned.
+  const rescanFacesNow = useCallback(
+    () => runScan(true, scopeItems.map((it) => it.id), true),
     [runScan, scopeItems]
   );
 
@@ -622,10 +636,12 @@ export default function App() {
                 density={density}
                 onDensityChange={setDensity}
                 unscanned={unscanned}
+                scanned={faceScope.scanned}
                 scanning={scanning}
                 scanDone={scanProg.done}
                 scanTotal={scanProg.total}
                 onScanFaces={scanFacesNow}
+                onRescanFaces={rescanFacesNow}
               />
             )}
 

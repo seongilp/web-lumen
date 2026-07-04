@@ -41,10 +41,13 @@ interface ControlBarProps {
   onDensityChange: (d: Density) => void;
   /** Photos not yet face-scanned (drives the scan button). */
   unscanned: number;
+  /** Photos already face-scanned in this scope (drives the re-scan button). */
+  scanned: number;
   scanning: boolean;
   scanDone: number;
   scanTotal: number;
   onScanFaces: () => void;
+  onRescanFaces: () => void;
 }
 
 const DENSITIES: { value: Density; icon: typeof Grid3x3; label: string }[] = [
@@ -81,13 +84,17 @@ export function ControlBar({
   density,
   onDensityChange,
   unscanned,
+  scanned,
   scanning,
   scanDone,
   scanTotal,
   onScanFaces,
+  onRescanFaces,
 }: ControlBarProps) {
   const query = view.query ?? "";
   const scanPct = scanTotal > 0 ? Math.round((scanDone / scanTotal) * 100) : 0;
+  // Once everything in view is scanned, the button offers a re-scan instead.
+  const rescanMode = !scanning && unscanned === 0 && scanned > 0;
   return (
     <div className="glass sticky top-[60px] z-20 border-b border-slate-800/60">
       <div className="flex flex-wrap items-center gap-2 px-5 py-2.5">
@@ -140,12 +147,16 @@ export function ControlBar({
           ariaLabel="얼굴 필터"
         />
 
-        {/* Face scan — appears while unscanned photos remain or a scan runs */}
-        {(unscanned > 0 || scanning) && (
+        {/* Face scan — scan new photos, re-scan a finished scope, or show progress */}
+        {(unscanned > 0 || scanning || rescanMode) && (
           <button
-            onClick={onScanFaces}
+            onClick={rescanMode ? onRescanFaces : onScanFaces}
             disabled={scanning}
-            title={`'${title}'에 보이는 사진에서만 얼굴을 찾아요 (기기 안에서만 처리)`}
+            title={
+              rescanMode
+                ? `'${title}'의 사진을 다시 검사해요 (기기 안에서만 처리)`
+                : `'${title}'에 보이는 사진에서만 얼굴을 찾아요 (기기 안에서만 처리)`
+            }
             className={cn(
               "flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-colors duration-200 ease-spring",
               scanning
@@ -165,6 +176,11 @@ export function ControlBar({
                     style={{ width: `${scanPct}%` }}
                   />
                 </span>
+              </>
+            ) : rescanMode ? (
+              <>
+                <ScanFace className="size-3.5" />
+                얼굴 재스캔
               </>
             ) : (
               <>
