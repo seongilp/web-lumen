@@ -28,7 +28,7 @@ import {
 } from "./lib/view";
 import { findDuplicates, type DupMode } from "./lib/dedup";
 import { shareFiles, SHARE_MAX } from "./lib/share";
-import { downloadPhotosZip } from "./lib/zip";
+import { downloadPhotosZip, type ZipOutcome } from "./lib/zip";
 import type { ThumbBadge } from "./components/Thumb";
 import {
   collectFromDataTransfer,
@@ -44,6 +44,17 @@ const DEFAULT_VIEW: ViewState = {
   orientation: "all",
   favFilter: "all",
 };
+
+function zipToast(out: ZipOutcome): string {
+  if (out.result === "empty") {
+    return out.skipped > 0
+      ? "원본을 찾지 못해 다운로드하지 못했어요. 폴더 권한을 확인해 주세요."
+      : "다운로드할 사진이 없어요.";
+  }
+  return out.skipped > 0
+    ? `${out.written}장을 ZIP으로 저장했어요. (${out.skipped}장은 원본을 못 찾아 제외)`
+    : `${out.written}장을 ZIP으로 저장했어요.`;
+}
 
 export default function App() {
   const lib = useLibrary();
@@ -253,27 +264,27 @@ export default function App() {
     download(lib.exportMetaBackup(), `web-lumen-meta-${stamp()}.lumen`);
   }, [lib]);
 
-  // Zip and save exactly what's on screen now (collection → collection only,
-  // favorites → favorites only). Streams to disk, so a huge folder is fine.
+  // Zip and download exactly what's on screen now (collection → collection only,
+  // favorites → favorites only).
   const handleDownloadPhotos = useCallback(async () => {
     const shots = visibleItems.filter((it) => it.status === "ready");
     if (shots.length === 0) {
       setToast({ message: "다운로드할 사진이 없어요." });
       return;
     }
+    // Grant folder permission up front — must run inside this click gesture.
+    await lib.ensureReadable(shots.map((it) => it.id));
     setBusy(true);
-    setToast({ message: `사진 ${shots.length}장 압축 준비 중…` });
+    setToast({ message: `사진 ${shots.length}장 압축 중…` });
     try {
       const archive = `web-lumen-${selectionTitle}-${stamp()}`;
-      const res = await downloadPhotosZip(
+      const out = await downloadPhotosZip(
         visibleItems,
         lib.openOriginal,
         archive,
         (done, total) => setToast({ message: `압축 중… ${done}/${total}` })
       );
-      if (res === "cancelled") setToast(null);
-      else if (res === "saved") setToast({ message: `${shots.length}장을 ZIP으로 저장했어요.` });
-      else setToast({ message: "다운로드할 사진이 없어요." });
+      setToast({ message: zipToast(out) });
     } catch (err) {
       setToast({ message: err instanceof Error ? err.message : "압축에 실패했어요." });
     } finally {
@@ -451,6 +462,33 @@ export default function App() {
     lib.removeMany(selArr);
     clearSelection();
   }, [selArr, lib, clearSelection]);
+
+  // Zip just the selected photos (display order) and download.
+  const downloadSelected = useCallback(async () => {
+    const chosen = new Set(selArr);
+    const picked = visibleItems.filter((it) => chosen.has(it.id) && it.status === "ready");
+    if (picked.length === 0) {
+      setToast({ message: "다운로드할 사진이 없어요." });
+      return;
+    }
+    await lib.ensureReadable(picked.map((it) => it.id));
+    setBusy(true);
+    setToast({ message: `사진 ${picked.length}장 압축 중…` });
+    try {
+      const archive = `web-lumen-선택-${stamp()}`;
+      const out = await downloadPhotosZip(
+        picked,
+        lib.openOriginal,
+        archive,
+        (done, total) => setToast({ message: `압축 중… ${done}/${total}` })
+      );
+      setToast({ message: zipToast(out) });
+    } catch (err) {
+      setToast({ message: err instanceof Error ? err.message : "압축에 실패했어요." });
+    } finally {
+      setBusy(false);
+    }
+  }, [selArr, visibleItems, lib]);
 
   const emptyTrash = useCallback(() => {
     lib.removeMany(lib.items.filter((it) => it.trashed).map((it) => it.id));
@@ -639,6 +677,7 @@ export default function App() {
                   clearSelection();
                 }}
                 onShare={() => shareMany(selArr)}
+                onDownload={downloadSelected}
                 onFavorite={() => {
                   lib.setFavoriteMany(selArr, true);
                   clearSelection();

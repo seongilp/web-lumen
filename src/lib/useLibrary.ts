@@ -670,6 +670,35 @@ export function useLibrary() {
     [resolveParent]
   );
 
+  // Grant read permission on every disk root the given items belong to, one
+  // prompt per root. MUST be called straight from a user gesture (the download
+  // click) — requestPermission needs transient activation, which is gone once
+  // the zip stream starts reading originals one by one.
+  const ensureReadable = useCallback(async (ids: string[]): Promise<void> => {
+    const roots = new Set<string>();
+    for (const id of ids) {
+      const idx = indexRef.current.get(id);
+      if (idx === undefined) continue;
+      roots.add(itemsRef.current[idx].relPath.split("/")[0]);
+    }
+    const rw = { mode: "read" as const };
+    for (const key of roots) {
+      const root = rootsRef.current.get(key);
+      if (!root) continue; // OPFS-only item, no disk permission needed
+      try {
+        const perm = root as unknown as {
+          queryPermission(o: typeof rw): Promise<PermissionState>;
+          requestPermission(o: typeof rw): Promise<PermissionState>;
+        };
+        if ((await perm.queryPermission(rw)) !== "granted") {
+          await perm.requestPermission(rw);
+        }
+      } catch {
+        /* denied — openOriginal will skip these and we report the count */
+      }
+    }
+  }, []);
+
   // Regenerate thumbnails for items missing them (e.g. an interrupted import),
   // reading originals from disk handle or OPFS. Must be called from a gesture
   // (picker permission re-request). Returns how many were healed.
@@ -727,6 +756,7 @@ export function useLibrary() {
     importFiles,
     clear,
     openOriginal,
+    ensureReadable,
     toggleFavorite,
     removeItem,
     removeMany,

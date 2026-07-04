@@ -1,11 +1,18 @@
-// Zip the currently-visible photos and save them — 100% local, no upload.
-// Streams straight to disk via showSaveFilePicker when available so a multi-GB
-// folder never has to fit in memory; falls back to an in-memory blob otherwise.
+// Zip the chosen photos and download them — 100% local, no upload.
+// Builds the archive as a Blob and triggers a normal browser download (lands in
+// the Downloads folder). Large Blobs are backed by the browser's on-disk blob
+// store, so this stays viable even for big selections.
 
 import { downloadZip } from "client-zip";
 import type { ImageItem } from "./types";
 
-export type ZipResult = "saved" | "cancelled" | "empty";
+export interface ZipOutcome {
+  result: "saved" | "empty";
+  /** How many originals actually made it into the archive. */
+  written: number;
+  /** Originals that couldn't be read (permission denied / file gone). */
+  skipped: number;
+}
 
 /** Make every entry name unique — two folders can hold the same filename. */
 export function dedupeNames(names: string[]): string[] {
@@ -27,18 +34,8 @@ function safeName(s: string): string {
   return s.replace(/[\\/:*?"<>|#]+/g, "_").replace(/\s+/g, " ").trim() || "photos";
 }
 
-interface ZipInput {
-  name: string;
-  input: Blob;
-  lastModified: Date;
-}
-
-const hasSavePicker = () =>
-  typeof (globalThis as unknown as { showSaveFilePicker?: unknown })
-    .showSaveFilePicker === "function";
-
 /**
- * Zip `items` (already the visible/filtered list) and save to disk.
+ * Zip `items` and download the archive.
  * @param loadOriginal resolves an item id to its original File (or null if gone).
  * @param onProgress called after each original is read (done, total).
  */
@@ -47,44 +44,28 @@ export async function downloadPhotosZip(
   loadOriginal: (id: string) => Promise<File | null>,
   archiveName: string,
   onProgress?: (done: number, total: number) => void
-): Promise<ZipResult> {
+): Promise<ZipOutcome> {
   const ready = items.filter((it) => it.status === "ready");
-  if (ready.length === 0) return "empty";
+  if (ready.length === 0) return { result: "empty", written: 0, skipped: 0 };
 
   const names = dedupeNames(ready.map((it) => it.name));
   const suggestedName = `${safeName(archiveName)}.zip`;
   const total = ready.length;
 
-  // Ask for the save location up front (needs the click's user gesture) so the
-  // stream has somewhere to go before we start reading originals.
-  let writable: FileSystemWritableFileStream | null = null;
-  if (hasSavePicker()) {
-    try {
-      const handle = await (
-        globalThis as unknown as {
-          showSaveFilePicker: (o: unknown) => Promise<FileSystemFileHandle>;
-        }
-      ).showSaveFilePicker({
-        suggestedName,
-        types: [{ description: "ZIP archive", accept: { "application/zip": [".zip"] } }],
-      });
-      writable = await handle.createWritable();
-    } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") return "cancelled";
-      writable = null; // picker failed for another reason → fall back to blob
-    }
-  }
+  let written = 0;
+  let skipped = 0;
 
-  // Lazily read one original at a time; the output stream's backpressure keeps
-  // memory flat even for thousands of files.
-  async function* entries(): AsyncGenerator<ZipInput> {
-    let done = 0;
+  // Read one original at a time so we never hold them all in memory at once.
+  async function* entries() {
     for (let i = 0; i < ready.length; i++) {
       const it = ready[i];
-      const file = await loadOriginal(it.id);
-      done++;
-      onProgress?.(done, total);
-      if (!file) continue; // original missing (e.g. never persisted) → skip
+      const file = await loadOriginal(it.id).catch(() => null);
+      onProgress?.(i + 1, total);
+      if (!file) {
+        skipped++;
+        continue;
+      }
+      written++;
       yield {
         name: names[i],
         input: file,
@@ -93,20 +74,15 @@ export async function downloadPhotosZip(
     }
   }
 
-  const zipped = downloadZip(entries());
+  const blob = await downloadZip(entries()).blob();
+  if (written === 0) return { result: "empty", written: 0, skipped };
 
-  if (writable) {
-    await zipped.body!.pipeTo(writable);
-    return "saved";
-  }
-
-  // Fallback: buffer the whole archive, then trigger a normal download.
-  const blob = await zipped.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = suggestedName;
   a.click();
+  // Revoke later — revoking in the same tick can abort a large download.
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  return "saved";
+  return { result: "saved", written, skipped };
 }

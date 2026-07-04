@@ -13,6 +13,7 @@ function setup(overrides = {}) {
     onCreateAndAdd: vi.fn(),
     onAddTag: vi.fn(),
     onShare: vi.fn(),
+    onDownload: vi.fn(),
     onFavorite: vi.fn(),
     onDelete: vi.fn(),
     onRestore: vi.fn(),
@@ -57,6 +58,12 @@ describe("SelectionBar", () => {
     fireEvent.change(input, { target: { value: "가을" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onCreateAndAdd).toHaveBeenCalledWith("가을");
+  });
+
+  it("downloads the selection", () => {
+    const { onDownload } = setup();
+    fireEvent.click(screen.getByRole("button", { name: /다운로드/ }));
+    expect(onDownload).toHaveBeenCalled();
   });
 
   it("clears the selection", () => {

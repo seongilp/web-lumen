@@ -10,6 +10,7 @@ import {
   ListChecks,
   Tag,
   Share2,
+  Download,
 } from "lucide-react";
 import type { Collection } from "@/lib/types";
 import { Button } from "./ui/button";
@@ -26,6 +27,7 @@ interface SelectionBarProps {
   onCreateAndAdd: (name: string) => void;
   onAddTag: (tag: string) => void;
   onShare: () => void;
+  onDownload: () => void;
   onFavorite: () => void;
   onDelete: () => void;
   onRestore: () => void;
@@ -44,6 +46,7 @@ export function SelectionBar({
   onCreateAndAdd,
   onAddTag,
   onShare,
+  onDownload,
   onFavorite,
   onDelete,
   onRestore,
@@ -85,6 +88,10 @@ export function SelectionBar({
             <Button variant="secondary" size="sm" onClick={onShare}>
               <Share2 />
               공유
+            </Button>
+            <Button variant="secondary" size="sm" onClick={onDownload}>
+              <Download />
+              다운로드
             </Button>
             <Button variant="secondary" size="sm" onClick={onFavorite}>
               <Star />
