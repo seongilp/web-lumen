@@ -308,9 +308,18 @@ export default function App() {
   const shareMany = useCallback(
     async (ids: string[]) => {
       const picked = ids.slice(0, SHARE_MAX);
-      const files = (await Promise.all(picked.map((id) => lib.openOriginal(id)))).filter(
-        (f): f is File => f !== null
+      const loaded = await Promise.all(
+        picked.map(async (id) => {
+          const orig = await lib.openOriginal(id);
+          if (!orig) return null;
+          const it = lib.items.find((i) => i.id === id);
+          // Rebuild with the manifest name/type (OPFS files are named by id).
+          return new File([orig], it?.name ?? orig.name, {
+            type: it?.type || orig.type || "application/octet-stream",
+          });
+        })
       );
+      const files = loaded.filter((f): f is File => f !== null);
       if (files.length === 0) return;
       const r = await shareFiles(files, `${files.length}장`);
       if (r === "unsupported") {

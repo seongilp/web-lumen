@@ -210,7 +210,18 @@ export function Lightbox({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => onShare(fileRef.current)}
+            onClick={() => {
+              // OPFS originals come back named by id with no MIME — rebuild the
+              // File with the manifest name/type so share/download is correct.
+              const f = fileRef.current;
+              onShare(
+                f
+                  ? new File([f], item.name, {
+                      type: item.type || f.type || "application/octet-stream",
+                    })
+                  : null
+              );
+            }}
             title="공유"
           >
             <Share2 />
