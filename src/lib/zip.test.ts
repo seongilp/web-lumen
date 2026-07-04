@@ -2,6 +2,20 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { dedupeNames, downloadPhotosZip } from "./zip";
 import type { ImageItem } from "./types";
 
+// Mock client-zip so tests exercise OUR orchestration (filtering, skip-count,
+// progress, download trigger) — not the library's internals, which are
+// battle-tested and whose real byte output is covered by the browser smoke
+// test. Passing jsdom File objects to the real client-zip recurses on Node 24.
+vi.mock("client-zip", () => ({
+  downloadZip: (entries: AsyncIterable<{ name: string }>) => ({
+    blob: async () => {
+      const names: string[] = [];
+      for await (const e of entries) names.push(e.name); // drains the generator
+      return new Blob([names.join("\n")]);
+    },
+  }),
+}));
+
 describe("dedupeNames", () => {
   it("keeps unique names untouched", () => {
     expect(dedupeNames(["a.jpg", "b.png"])).toEqual(["a.jpg", "b.png"]);
