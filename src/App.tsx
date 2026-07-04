@@ -28,6 +28,7 @@ import {
 } from "./lib/view";
 import { findDuplicates, type DupMode } from "./lib/dedup";
 import { shareFiles, SHARE_MAX } from "./lib/share";
+import { downloadPhotosZip } from "./lib/zip";
 import type { ThumbBadge } from "./components/Thumb";
 import {
   collectFromDataTransfer,
@@ -251,6 +252,34 @@ export default function App() {
   const handleExportMeta = useCallback(() => {
     download(lib.exportMetaBackup(), `web-lumen-meta-${stamp()}.lumen`);
   }, [lib]);
+
+  // Zip and save exactly what's on screen now (collection → collection only,
+  // favorites → favorites only). Streams to disk, so a huge folder is fine.
+  const handleDownloadPhotos = useCallback(async () => {
+    const shots = visibleItems.filter((it) => it.status === "ready");
+    if (shots.length === 0) {
+      setToast({ message: "다운로드할 사진이 없어요." });
+      return;
+    }
+    setBusy(true);
+    setToast({ message: `사진 ${shots.length}장 압축 준비 중…` });
+    try {
+      const archive = `web-lumen-${selectionTitle}-${stamp()}`;
+      const res = await downloadPhotosZip(
+        visibleItems,
+        lib.openOriginal,
+        archive,
+        (done, total) => setToast({ message: `압축 중… ${done}/${total}` })
+      );
+      if (res === "cancelled") setToast(null);
+      else if (res === "saved") setToast({ message: `${shots.length}장을 ZIP으로 저장했어요.` });
+      else setToast({ message: "다운로드할 사진이 없어요." });
+    } catch (err) {
+      setToast({ message: err instanceof Error ? err.message : "압축에 실패했어요." });
+    } finally {
+      setBusy(false);
+    }
+  }, [visibleItems, selectionTitle, lib]);
 
   const handleImportClick = useCallback(() => fileInputRef.current?.click(), []);
 
@@ -480,6 +509,9 @@ export default function App() {
             onClear={lib.clear}
             onExportFull={handleExportFull}
             onExportMeta={handleExportMeta}
+            onDownloadPhotos={handleDownloadPhotos}
+            photoCount={visibleItems.filter((it) => it.status === "ready").length}
+            viewName={selectionTitle}
             onImport={handleImportClick}
             onToggleSidebar={() => setSidebarOpen((o) => !o)}
             busy={busy}

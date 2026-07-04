@@ -9,6 +9,7 @@ import {
   Upload,
   HardDrive,
   FileJson,
+  FileArchive,
   PanelLeft,
 } from "lucide-react";
 import { Button } from "./ui/button";
@@ -25,6 +26,11 @@ interface ToolbarProps {
   onClear: () => void;
   onExportFull: () => void;
   onExportMeta: () => void;
+  onDownloadPhotos: () => void;
+  /** How many photos are on screen right now (drives the ZIP menu item). */
+  photoCount: number;
+  /** Label of the current view, e.g. "즐겨찾기" or a collection name. */
+  viewName: string;
   onImport: () => void;
   onToggleSidebar: () => void;
   busy: boolean;
@@ -41,6 +47,9 @@ export function Toolbar({
   onClear,
   onExportFull,
   onExportMeta,
+  onDownloadPhotos,
+  photoCount,
+  viewName,
   onImport,
   onToggleSidebar,
   busy,
@@ -108,7 +117,14 @@ export function Toolbar({
           <Upload className="text-slate-400" />
         </Button>
         {count > 0 && (
-          <ExportMenu busy={busy} onFull={onExportFull} onMeta={onExportMeta} />
+          <ExportMenu
+            busy={busy}
+            onFull={onExportFull}
+            onMeta={onExportMeta}
+            onDownloadPhotos={onDownloadPhotos}
+            photoCount={photoCount}
+            viewName={viewName}
+          />
         )}
         {canPick && (
           <Button variant="secondary" size="sm" onClick={onPick}>
@@ -130,10 +146,16 @@ function ExportMenu({
   busy,
   onFull,
   onMeta,
+  onDownloadPhotos,
+  photoCount,
+  viewName,
 }: {
   busy: boolean;
   onFull: () => void;
   onMeta: () => void;
+  onDownloadPhotos: () => void;
+  photoCount: number;
+  viewName: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -159,7 +181,7 @@ function ExportMenu({
         size="icon"
         onClick={() => setOpen((o) => !o)}
         disabled={busy}
-        title="백업(내보내기)"
+        title="사진 다운로드 · 백업"
       >
         {busy ? (
           <Loader2 className="animate-spin text-slate-400" />
@@ -169,7 +191,15 @@ function ExportMenu({
       </Button>
 
       {open && (
-        <div className="glass animate-pop absolute right-0 z-40 mt-1.5 w-60 rounded-xl border border-slate-700/60 p-1 shadow-2xl shadow-black/50">
+        <div className="glass animate-pop absolute right-0 z-40 mt-1.5 w-64 rounded-xl border border-slate-700/60 p-1 shadow-2xl shadow-black/50">
+          <MenuItem
+            icon={FileArchive}
+            title={`이 화면 사진 ZIP (${photoCount.toLocaleString()}장)`}
+            desc={`'${viewName}'에 보이는 사진만 통째로 압축해 저장`}
+            disabled={photoCount === 0}
+            onClick={() => pick(onDownloadPhotos)}
+          />
+          <div className="my-1 border-t border-slate-700/50" />
           <MenuItem
             icon={HardDrive}
             title="전체 백업"
@@ -193,17 +223,21 @@ function MenuItem({
   title,
   desc,
   onClick,
+  disabled = false,
 }: {
   icon: typeof HardDrive;
   title: string;
   desc: string;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className={cn(
-        "flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-slate-800/70"
+        "flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-slate-800/70",
+        disabled && "cursor-not-allowed opacity-40 hover:bg-transparent"
       )}
     >
       <Icon className="mt-0.5 size-4 shrink-0 text-sky-400" />
