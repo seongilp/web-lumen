@@ -7,9 +7,11 @@ function setup(overrides = {}) {
     count: 3,
     total: 10,
     collections: [{ id: "c1", name: "여름" }],
+    tags: ["여행", "음식"],
     onSelectAll: vi.fn(),
     onAddToCollection: vi.fn(),
     onCreateAndAdd: vi.fn(),
+    onAddTag: vi.fn(),
     onFavorite: vi.fn(),
     onDelete: vi.fn(),
     onRestore: vi.fn(),
@@ -60,6 +62,15 @@ describe("SelectionBar", () => {
     const { onClear } = setup();
     fireEvent.click(screen.getByTitle("선택 해제 (Esc)"));
     expect(onClear).toHaveBeenCalled();
+  });
+
+  it("adds a tag to the selection", () => {
+    const { onAddTag } = setup();
+    fireEvent.click(screen.getByRole("button", { name: /^태그$/ }));
+    const input = screen.getByPlaceholderText("태그 입력 후 Enter");
+    fireEvent.change(input, { target: { value: "여행" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onAddTag).toHaveBeenCalledWith("여행");
   });
 
   it("selects all", () => {

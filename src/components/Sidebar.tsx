@@ -8,6 +8,7 @@ import {
   Layers,
   Trash2,
   Check,
+  Tag,
 } from "lucide-react";
 import { Trash } from "lucide-react";
 import type { Collection } from "@/lib/types";
@@ -27,12 +28,14 @@ interface SidebarProps {
   onSelect: (s: Selection) => void;
   folders: { value: string; label: string }[];
   collections: Collection[];
+  tags: { value: string; count: number }[];
   counts: Counts;
   onCreateCollection: (name: string) => void;
   onRenameCollection: (id: string, name: string) => void;
   onDeleteCollection: (id: string) => void;
   onDropToFavorite: (itemIds: string[]) => void;
   onDropToCollection: (collectionId: string, itemIds: string[]) => void;
+  onDropToTag: (tag: string, itemIds: string[]) => void;
   /** Mobile drawer state. */
   open?: boolean;
   onClose?: () => void;
@@ -60,12 +63,14 @@ export function Sidebar({
   onSelect,
   folders,
   collections,
+  tags,
   counts,
   onCreateCollection,
   onRenameCollection,
   onDeleteCollection,
   onDropToFavorite,
   onDropToCollection,
+  onDropToTag,
   open = false,
   onClose,
 }: SidebarProps) {
@@ -266,6 +271,26 @@ export function Sidebar({
           );
         })}
       </Section>
+
+      {tags.length > 0 && (
+        <Section title="태그">
+          {tags.map((t) => {
+            const key = `tag:${t.value}`;
+            return (
+              <Row
+                key={key}
+                icon={Tag}
+                label={t.value}
+                count={t.count}
+                active={active === key}
+                onClick={() => select({ kind: "tag", value: t.value })}
+                dropTarget={dropKey === key}
+                {...dropProps(key, (ids) => onDropToTag(t.value, ids))}
+              />
+            );
+          })}
+        </Section>
+      )}
       </aside>
     </>
   );

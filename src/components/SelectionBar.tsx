@@ -8,6 +8,7 @@ import {
   Plus,
   RotateCcw,
   ListChecks,
+  Tag,
 } from "lucide-react";
 import type { Collection } from "@/lib/types";
 import { Button } from "./ui/button";
@@ -17,10 +18,12 @@ interface SelectionBarProps {
   count: number;
   total: number;
   collections: Collection[];
+  tags: string[];
   trashMode?: boolean;
   onSelectAll: () => void;
   onAddToCollection: (collectionId: string) => void;
   onCreateAndAdd: (name: string) => void;
+  onAddTag: (tag: string) => void;
   onFavorite: () => void;
   onDelete: () => void;
   onRestore: () => void;
@@ -32,10 +35,12 @@ export function SelectionBar({
   count,
   total,
   collections,
+  tags,
   trashMode,
   onSelectAll,
   onAddToCollection,
   onCreateAndAdd,
+  onAddTag,
   onFavorite,
   onDelete,
   onRestore,
@@ -73,6 +78,7 @@ export function SelectionBar({
               onAddToCollection={onAddToCollection}
               onCreateAndAdd={onCreateAndAdd}
             />
+            <TagMenu tags={tags} onAddTag={onAddTag} />
             <Button variant="secondary" size="sm" onClick={onFavorite}>
               <Star />
               즐겨찾기
@@ -92,6 +98,66 @@ export function SelectionBar({
       >
         <X className="size-4" />
       </button>
+    </div>
+  );
+}
+
+function TagMenu({
+  tags,
+  onAddTag,
+}: {
+  tags: string[];
+  onAddTag: (tag: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  const add = (t: string) => {
+    if (t.trim()) onAddTag(t);
+    setValue("");
+    setOpen(false);
+  };
+  const q = value.trim().toLowerCase();
+  const suggestions = tags.filter((t) => t.toLowerCase().includes(q)).slice(0, 8);
+
+  return (
+    <div ref={ref} className="relative">
+      <Button variant="secondary" size="sm" onClick={() => setOpen((o) => !o)}>
+        <Tag />
+        태그
+      </Button>
+      {open && (
+        <div className="glass animate-pop absolute left-0 z-40 mt-1.5 max-h-72 w-56 overflow-y-auto rounded-xl border border-slate-700/60 p-1 shadow-2xl shadow-black/50">
+          <input
+            autoFocus
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && add(value)}
+            placeholder="태그 입력 후 Enter"
+            className="mb-1 h-8 w-full rounded-md border border-slate-700 bg-slate-900 px-2 text-xs text-slate-100 outline-none focus:border-sky-500"
+          />
+          {suggestions.map((t) => (
+            <button
+              key={t}
+              onClick={() => add(t)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-slate-200 transition-colors hover:bg-slate-800/70"
+            >
+              <Tag className="size-3.5 shrink-0 text-sky-400" />
+              <span className="min-w-0 flex-1 truncate">{t}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

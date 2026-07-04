@@ -79,6 +79,7 @@ describe("exportMeta", () => {
     status: "ready",
     favorite: false,
     collections: [],
+    tags: [],
     trashed: false,
     ...over,
   });

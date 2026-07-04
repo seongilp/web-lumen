@@ -11,6 +11,8 @@ import {
   Play,
   Pause,
   MapPin,
+  Tag,
+  Plus,
 } from "lucide-react";
 import type { ImageItem } from "@/lib/types";
 import { Button } from "./ui/button";
@@ -28,6 +30,8 @@ interface LightboxProps {
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   onRename: (id: string, name: string) => void;
+  onAddTag: (id: string, tag: string) => void;
+  onRemoveTag: (id: string, tag: string) => void;
   /** True when deleting removes the real file on disk (picker imports). */
   canDeleteReal?: boolean;
   /** When true (e.g. the editor is open), keyboard shortcuts are suspended. */
@@ -44,6 +48,8 @@ export function Lightbox({
   onDelete,
   onEdit,
   onRename,
+  onAddTag,
+  onRemoveTag,
   canDeleteReal = false,
   paused = false,
 }: LightboxProps) {
@@ -53,6 +59,7 @@ export function Lightbox({
   const [playing, setPlaying] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
+  const [tagInput, setTagInput] = useState("");
   const urlRef = useRef<string | null>(null);
 
   // Load the full-resolution original from OPFS for the current item.
@@ -240,6 +247,42 @@ export function Lightbox({
           </Button>
         </div>
       </header>
+
+      {/* Tag bar */}
+      <div className="z-10 flex flex-wrap items-center gap-1.5 px-5 pb-3">
+        <Tag className="size-3.5 shrink-0 text-slate-500" />
+        {item.tags.map((t) => (
+          <span
+            key={t}
+            className="group/tag flex items-center gap-1 rounded-full border border-slate-700/70 bg-slate-800/60 py-0.5 pl-2.5 pr-1 text-xs text-slate-200"
+          >
+            {t}
+            <button
+              onClick={() => onRemoveTag(item.id, t)}
+              title="태그 제거"
+              className="grid size-4 place-items-center rounded-full text-slate-500 hover:bg-slate-700 hover:text-slate-200"
+            >
+              <X className="size-3" />
+            </button>
+          </span>
+        ))}
+        <div className="flex items-center gap-1 rounded-full border border-dashed border-slate-700/70 py-0.5 pl-2 pr-1">
+          <Plus className="size-3 text-slate-500" />
+          <input
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && tagInput.trim()) {
+                onAddTag(item.id, tagInput);
+                setTagInput("");
+              }
+              if (e.key === "Escape") setTagInput("");
+            }}
+            placeholder="태그 추가"
+            className="w-20 bg-transparent text-xs text-slate-100 outline-none placeholder:text-slate-500"
+          />
+        </div>
+      </div>
 
       {/* Stage. When zoomed we fit to width and scroll vertically, so align to
           the top — otherwise a tall image's top would be clipped and unreachable. */}

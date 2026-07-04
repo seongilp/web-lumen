@@ -16,6 +16,7 @@ import { ThumbPool } from "./lib/thumb-pool";
 import {
   applyView,
   listFolders,
+  listTags,
   topFolder,
   selectionToView,
   DENSITY_CELL,
@@ -87,6 +88,8 @@ export default function App() {
     [lib.items, effectiveView]
   );
   const folders = useMemo(() => listFolders(lib.items), [lib.items]);
+  const tags = useMemo(() => listTags(lib.items), [lib.items]);
+  const tagNames = useMemo(() => tags.map((t) => t.value), [tags]);
   const dup = useMemo(() => findDuplicates(lib.items, dupKind), [lib.items, dupKind]);
   const missingThumbs = useMemo(
     () => lib.items.filter((it) => it.status === "pending" && !it.trashed).length,
@@ -135,6 +138,8 @@ export default function App() {
         return selection.value === ROOT_FOLDER ? "최상위" : selection.value;
       case "collection":
         return lib.collections.find((c) => c.id === selection.id)?.name ?? "컬렉션";
+      case "tag":
+        return `#${selection.value}`;
       default:
         return "전체";
     }
@@ -154,7 +159,10 @@ export default function App() {
     if (selection.kind === "trash" && counts.trash === 0) {
       setSelection({ kind: "all" });
     }
-  }, [selection, lib.collections, folders, counts.trash]);
+    if (selection.kind === "tag" && !tags.some((t) => t.value === selection.value)) {
+      setSelection({ kind: "all" });
+    }
+  }, [selection, lib.collections, folders, counts.trash, tags]);
 
   // In duplicate mode, the grid/lightbox operate on the grouped duplicate list.
   const activeItems = dupMode ? dup.ordered : visibleItems;
@@ -279,6 +287,7 @@ export default function App() {
     (collectionId: string, ids: string[]) => lib.addToCollection(ids, collectionId),
     [lib]
   );
+  const onDropToTag = useCallback((tag: string, ids: string[]) => lib.addTag(ids, tag), [lib]);
   const resetView = useCallback(() => {
     setView(DEFAULT_VIEW);
     setSelection({ kind: "all" });
@@ -443,12 +452,14 @@ export default function App() {
               onSelect={setSelection}
               folders={folders}
               collections={lib.collections}
+              tags={tags}
               counts={counts}
               onCreateCollection={(name) => setSelection({ kind: "collection", id: lib.createCollection(name) })}
               onRenameCollection={lib.renameCollection}
               onDeleteCollection={lib.deleteCollection}
               onDropToFavorite={onDropToFavorite}
               onDropToCollection={onDropToCollection}
+              onDropToTag={onDropToTag}
               open={sidebarOpen}
               onClose={() => setSidebarOpen(false)}
             />
@@ -538,6 +549,7 @@ export default function App() {
                 count={selectedIds.size}
                 total={activeItems.length}
                 collections={lib.collections}
+                tags={tagNames}
                 trashMode={inTrash}
                 onSelectAll={selectAll}
                 onAddToCollection={(colId) => {
@@ -546,6 +558,10 @@ export default function App() {
                 }}
                 onCreateAndAdd={(name) => {
                   lib.addToCollection(selArr, lib.createCollection(name));
+                  clearSelection();
+                }}
+                onAddTag={(tag) => {
+                  lib.addTag(selArr, tag);
                   clearSelection();
                 }}
                 onFavorite={() => {
@@ -650,6 +666,8 @@ export default function App() {
           onDelete={handleDelete}
           onEdit={setEditingId}
           onRename={lib.renameItem}
+          onAddTag={(id, tag) => lib.addTag([id], tag)}
+          onRemoveTag={lib.removeTag}
           canDeleteReal={lib.hasHandle(activeItems[lightboxIndex].id)}
           paused={editingId !== null}
         />

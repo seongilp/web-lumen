@@ -50,6 +50,7 @@ function toManifest(item: ImageItem): ManifestItem {
     hash: item.hash,
     phash: item.phash,
     collections: item.collections,
+    tags: item.tags,
     trashed: item.trashed,
     takenAt: item.takenAt,
     camera: item.camera,
@@ -137,6 +138,7 @@ export function useLibrary() {
           hash: m.hash,
           phash: m.phash,
           collections: m.collections ?? [],
+          tags: m.tags ?? [],
           trashed: m.trashed ?? false,
           takenAt: m.takenAt,
           camera: m.camera,
@@ -251,6 +253,7 @@ export function useLibrary() {
             status: "pending",
             favorite: false,
             collections: [],
+            tags: [],
             trashed: false,
           });
           jobs.push({ id, file, persistOriginal });
@@ -414,6 +417,39 @@ export function useLibrary() {
         setItems(itemsRef.current.slice());
         persistManifest();
       }
+    },
+    [persistManifest]
+  );
+
+  // ---- Tags -------------------------------------------------------------
+  const addTag = useCallback(
+    (ids: string[], rawTag: string) => {
+      const tag = rawTag.trim();
+      if (!tag) return;
+      const set = new Set(ids);
+      let touched = false;
+      itemsRef.current = itemsRef.current.map((it) => {
+        if (!set.has(it.id) || it.tags.includes(tag)) return it;
+        touched = true;
+        return { ...it, tags: [...it.tags, tag] };
+      });
+      if (touched) {
+        setItems(itemsRef.current.slice());
+        persistManifest();
+      }
+    },
+    [persistManifest]
+  );
+
+  const removeTag = useCallback(
+    (id: string, tag: string) => {
+      const idx = indexRef.current.get(id);
+      if (idx === undefined) return;
+      const prev = itemsRef.current[idx];
+      if (!prev.tags.includes(tag)) return;
+      itemsRef.current[idx] = { ...prev, tags: prev.tags.filter((t) => t !== tag) };
+      setItems(itemsRef.current.slice());
+      persistManifest();
     },
     [persistManifest]
   );
@@ -708,6 +744,8 @@ export function useLibrary() {
     trashItems,
     restoreItems,
     regenerateThumbnails,
+    addTag,
+    removeTag,
     hasHandle,
   };
 }

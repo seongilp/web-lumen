@@ -26,7 +26,9 @@ export interface ViewState {
   orientation: Orientation;
   /** When set, only images belonging to this user collection id. */
   collection?: string;
-  /** Free-text search over filename + camera. */
+  /** When set, only images carrying this tag. */
+  tag?: string;
+  /** Free-text search over filename + camera + tags. */
   query?: string;
   /** Show trashed (true) vs live (false/undefined) items. */
   trashed?: boolean;
@@ -43,7 +45,8 @@ export type Selection =
   | { kind: "favorites" }
   | { kind: "trash" }
   | { kind: "folder"; value: string }
-  | { kind: "collection"; id: string };
+  | { kind: "collection"; id: string }
+  | { kind: "tag"; value: string };
 
 export function selectionKey(s: Selection): string {
   switch (s.kind) {
@@ -51,6 +54,8 @@ export function selectionKey(s: Selection): string {
       return `folder:${s.value}`;
     case "collection":
       return `collection:${s.id}`;
+    case "tag":
+      return `tag:${s.value}`;
     default:
       return s.kind;
   }
@@ -59,14 +64,27 @@ export function selectionKey(s: Selection): string {
 /** Map a sidebar selection onto the filter fields of a ViewState. */
 export function selectionToView(s: Selection): Pick<
   ViewState,
-  "onlyFavorites" | "folder" | "collection" | "trashed"
+  "onlyFavorites" | "folder" | "collection" | "trashed" | "tag"
 > {
   return {
     onlyFavorites: s.kind === "favorites",
     folder: s.kind === "folder" ? s.value : ALL_FOLDERS,
     collection: s.kind === "collection" ? s.id : undefined,
+    tag: s.kind === "tag" ? s.value : undefined,
     trashed: s.kind === "trash",
   };
+}
+
+/** Distinct tags across live items, sorted, with counts. */
+export function listTags(items: ImageItem[]): { value: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const it of items) {
+    if (it.trashed) continue;
+    for (const t of it.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0], "ko"))
+    .map(([value, count]) => ({ value, count }));
 }
 
 export const SORT_LABELS: Record<SortKey, string> = {
@@ -139,7 +157,13 @@ export function applyView(items: ImageItem[], v: ViewState): ImageItem[] {
     if (v.favFilter === "fav" && !it.favorite) return false;
     if (v.favFilter === "unfav" && it.favorite) return false;
     if (v.collection && !it.collections.includes(v.collection)) return false;
-    if (q && !it.name.toLowerCase().includes(q) && !it.camera?.toLowerCase().includes(q)) {
+    if (v.tag && !it.tags.includes(v.tag)) return false;
+    if (
+      q &&
+      !it.name.toLowerCase().includes(q) &&
+      !it.camera?.toLowerCase().includes(q) &&
+      !it.tags.some((t) => t.toLowerCase().includes(q))
+    ) {
       return false;
     }
     if (v.folder) {

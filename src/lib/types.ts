@@ -27,6 +27,8 @@ export interface ImageItem {
   phash?: string;
   /** Ids of user collections this image belongs to. */
   collections: string[];
+  /** Free-text tags (labels) attached to this image. */
+  tags: string[];
   /** Soft-deleted: hidden from normal views, kept until trash is emptied. */
   trashed: boolean;
   /** EXIF: capture time (ms), camera "Make Model", GPS coords. */
@@ -53,6 +55,7 @@ export interface ManifestItem {
   hash?: string;
   phash?: string;
   collections?: string[];
+  tags?: string[];
   trashed?: boolean;
   takenAt?: number;
   camera?: string;

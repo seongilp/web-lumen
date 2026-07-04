@@ -9,12 +9,14 @@ function setup(overrides: Partial<Parameters<typeof Sidebar>[0]> = {}) {
     onSelect: vi.fn(),
     folders: [{ value: "trip", label: "trip" }],
     collections: [{ id: "c1", name: "여름" }],
+    tags: [{ value: "여행", count: 3 }],
     counts: { all: 5, favorites: 2, trash: 0, folders: { trip: 3 }, collections: { c1: 4 } },
     onCreateCollection: vi.fn(),
     onRenameCollection: vi.fn(),
     onDeleteCollection: vi.fn(),
     onDropToFavorite: vi.fn(),
     onDropToCollection: vi.fn(),
+    onDropToTag: vi.fn(),
     ...overrides,
   };
   render(<Sidebar {...props} />);

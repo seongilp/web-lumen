@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   applyView,
   listFolders,
+  listTags,
   topFolder,
   selectionToView,
   selectionKey,
@@ -161,6 +162,17 @@ describe("applyView – filtering", () => {
     expect(applyView(items, { ...base, collection: "c2" })).toHaveLength(1);
     expect(applyView(items, { ...base, collection: "none" })).toHaveLength(0);
   });
+
+  it("filters by tag and searches tags", () => {
+    const items = [
+      makeItem({ name: "a.png", tags: ["여행", "음식"] }),
+      makeItem({ name: "b.png", tags: ["여행"] }),
+      makeItem({ name: "c.png", tags: [] }),
+    ];
+    expect(applyView(items, { ...base, tag: "여행" })).toHaveLength(2);
+    expect(applyView(items, { ...base, tag: "음식" })).toHaveLength(1);
+    expect(applyView(items, { ...base, query: "음식" })).toHaveLength(1); // tag match via search
+  });
 });
 
 describe("selection", () => {
@@ -182,5 +194,20 @@ describe("selection", () => {
     expect(selectionKey({ kind: "favorites" })).toBe("favorites");
     expect(selectionKey({ kind: "folder", value: "a" })).toBe("folder:a");
     expect(selectionKey({ kind: "collection", id: "c1" })).toBe("collection:c1");
+    expect(selectionKey({ kind: "tag", value: "여행" })).toBe("tag:여행");
+  });
+});
+
+describe("listTags", () => {
+  it("lists distinct live tags with counts, sorted", () => {
+    const items = [
+      makeItem({ tags: ["여행", "음식"] }),
+      makeItem({ tags: ["여행"] }),
+      makeItem({ tags: ["음식"], trashed: true }), // trashed excluded
+    ];
+    expect(listTags(items)).toEqual([
+      { value: "여행", count: 2 },
+      { value: "음식", count: 1 },
+    ]);
   });
 });
