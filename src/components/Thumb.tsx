@@ -119,6 +119,25 @@ function ThumbBase({
         </span>
       )}
 
+      {/* Tags — small chips at the bottom, hidden on hover so the caption reads */}
+      {item.tags.length > 0 && (
+        <div className="pointer-events-none absolute inset-x-1.5 bottom-1.5 flex flex-wrap-reverse gap-1 overflow-hidden opacity-100 transition-opacity duration-200 group-hover:opacity-0">
+          {item.tags.slice(0, 3).map((t) => (
+            <span
+              key={t}
+              className="max-w-[7rem] truncate rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white/90 backdrop-blur-sm"
+            >
+              {t}
+            </span>
+          ))}
+          {item.tags.length > 3 && (
+            <span className="rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white/80 backdrop-blur-sm">
+              +{item.tags.length - 3}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Caption on hover */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-2 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-2.5 pt-6 opacity-0 transition-all duration-300 ease-spring group-hover:translate-y-0 group-hover:opacity-100">
         <p className="truncate text-left text-[11px] font-medium text-white/90">
