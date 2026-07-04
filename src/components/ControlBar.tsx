@@ -145,7 +145,7 @@ export function ControlBar({
           <button
             onClick={onScanFaces}
             disabled={scanning}
-            title="얼굴이 나온 사진을 로컬에서 찾아 표시해요 (업로드 없음)"
+            title={`'${title}'에 보이는 사진에서만 얼굴을 찾아요 (기기 안에서만 처리)`}
             className={cn(
               "flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-colors duration-200 ease-spring",
               scanning

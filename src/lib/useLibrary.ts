@@ -35,6 +35,8 @@ export interface LibraryState {
   supported: boolean;
   restoredCount: number;
   collections: Collection[];
+  /** Ids from the most recent import (for scoped auto-scan). */
+  lastImported: string[];
 }
 
 function toManifest(item: ImageItem): ManifestItem {
@@ -71,6 +73,8 @@ export function useLibrary() {
   const [collections, setCollections] = useState<Collection[]>([]);
   // How many items were restored from OPFS at startup (drives the trust banner).
   const [restoredCount, setRestoredCount] = useState(0);
+  // Ids from the most recent import — lets the app auto-scan just new photos.
+  const [lastImported, setLastImported] = useState<string[]>([]);
 
   const supported = opfsSupported();
 
@@ -299,6 +303,7 @@ export function useLibrary() {
       await persistManifest();
 
       setImporting(false);
+      setLastImported(jobs.map((j) => j.id)); // let the app auto-scan just these
       refreshUsage();
     },
     [applyResult, getPool, persistManifest, reindex, refreshUsage]
@@ -721,14 +726,18 @@ export function useLibrary() {
   const scanFaces = useCallback(
     async (opts?: {
       all?: boolean;
+      /** Restrict the scan to these ids (e.g. the current folder/collection). */
+      ids?: string[];
       onProgress?: (done: number, total: number) => void;
       signal?: () => boolean;
     }): Promise<number> => {
+      const idSet = opts?.ids ? new Set(opts.ids) : null;
       const targets = itemsRef.current.filter(
         (it) =>
           it.status === "ready" &&
           !it.trashed &&
-          (opts?.all || it.faces === undefined)
+          (opts?.all || it.faces === undefined) &&
+          (!idSet || idSet.has(it.id))
       );
       if (targets.length === 0) return 0;
 
@@ -806,6 +815,7 @@ export function useLibrary() {
     supported,
     restoredCount,
     collections,
+    lastImported,
   };
   return {
     ...state,

@@ -111,22 +111,28 @@ export default function App() {
     }
   }, [lib]);
 
-  // Photos not yet run through local face detection.
+  // The current view's items, ignoring the face filter itself — this is the
+  // scope a face scan covers (the selected folder / collection / favorites).
+  const scopeItems = useMemo(
+    () => applyView(lib.items, { ...effectiveView, faceFilter: "all" }),
+    [lib.items, effectiveView]
+  );
+  // Photos in the current scope not yet run through local face detection.
   const unscanned = useMemo(
-    () =>
-      lib.items.filter(
-        (it) => it.status === "ready" && !it.trashed && it.faces === undefined
-      ).length,
-    [lib.items]
+    () => scopeItems.filter((it) => it.status === "ready" && it.faces === undefined).length,
+    [scopeItems]
   );
 
+  // Scan just the given ids (a folder/collection/favorites scope, or new imports).
   const runScan = useCallback(
-    async (announce: boolean) => {
+    async (announce: boolean, ids: string[]) => {
+      if (ids.length === 0) return;
       setScanning(true);
-      setScanProg({ done: 0, total: 0 });
+      setScanProg({ done: 0, total: ids.length });
       if (announce) setToast({ message: "얼굴을 찾는 중이에요… (기기 안에서만 처리)" });
       try {
         const withFace = await lib.scanFaces({
+          ids,
           onProgress: (done, total) => setScanProg({ done, total }),
         });
         if (announce) setToast({ message: `얼굴이 있는 사진 ${withFace}장을 찾았어요.` });
@@ -140,16 +146,25 @@ export default function App() {
     [lib]
   );
 
-  const scanFacesNow = useCallback(() => runScan(true), [runScan]);
+  // Manual scan → only the photos currently in view (folder/collection/favorites).
+  const scanFacesNow = useCallback(
+    () => runScan(true, scopeItems.map((it) => it.id)),
+    [runScan, scopeItems]
+  );
 
-  // Auto-scan freshly imported photos once the user has run a scan at least once.
-  const wasImporting = useRef(false);
+  // Auto-scan freshly imported photos (only those) once the user has scanned once.
+  const scannedImportRef = useRef<string[] | null>(null);
   useEffect(() => {
-    if (wasImporting.current && !lib.importing && faceScanEnabled() && !scanning) {
-      void runScan(false);
+    if (
+      lib.lastImported !== scannedImportRef.current &&
+      lib.lastImported.length > 0 &&
+      faceScanEnabled() &&
+      !scanning
+    ) {
+      scannedImportRef.current = lib.lastImported;
+      void runScan(false, lib.lastImported);
     }
-    wasImporting.current = lib.importing;
-  }, [lib.importing, scanning, runScan]);
+  }, [lib.lastImported, scanning, runScan]);
 
   // Per-section counts for the sidebar.
   const counts = useMemo(() => {
