@@ -10,15 +10,19 @@ import {
   LayoutGrid,
   Grid2x2,
   Star,
+  ScanFace,
+  Loader2,
 } from "lucide-react";
 import { Dropdown, type DropdownOption } from "./ui/Dropdown";
 import { cn } from "@/lib/utils";
 import {
   FAV_FILTER_LABELS,
+  FACE_FILTER_LABELS,
   ORIENTATION_LABELS,
   SORT_LABELS,
   type Density,
   type FavFilter,
+  type FaceFilter,
   type Orientation,
   type SortKey,
   type ViewState,
@@ -35,6 +39,12 @@ interface ControlBarProps {
   onToggleDup: () => void;
   density: Density;
   onDensityChange: (d: Density) => void;
+  /** Photos not yet face-scanned (drives the scan button). */
+  unscanned: number;
+  scanning: boolean;
+  scanDone: number;
+  scanTotal: number;
+  onScanFaces: () => void;
 }
 
 const DENSITIES: { value: Density; icon: typeof Grid3x3; label: string }[] = [
@@ -55,6 +65,10 @@ const favOptions: DropdownOption<FavFilter>[] = (
   Object.keys(FAV_FILTER_LABELS) as FavFilter[]
 ).map((f) => ({ value: f, label: FAV_FILTER_LABELS[f] }));
 
+const faceOptions: DropdownOption<FaceFilter>[] = (
+  Object.keys(FACE_FILTER_LABELS) as FaceFilter[]
+).map((f) => ({ value: f, label: FACE_FILTER_LABELS[f] }));
+
 export function ControlBar({
   view,
   onChange,
@@ -66,8 +80,14 @@ export function ControlBar({
   onToggleDup,
   density,
   onDensityChange,
+  unscanned,
+  scanning,
+  scanDone,
+  scanTotal,
+  onScanFaces,
 }: ControlBarProps) {
   const query = view.query ?? "";
+  const scanPct = scanTotal > 0 ? Math.round((scanDone / scanTotal) * 100) : 0;
   return (
     <div className="glass sticky top-[60px] z-20 border-b border-slate-800/60">
       <div className="flex flex-wrap items-center gap-2 px-5 py-2.5">
@@ -110,6 +130,51 @@ export function ControlBar({
           icon={Star}
           ariaLabel="즐겨찾기 필터"
         />
+
+        {/* Face filter */}
+        <Dropdown
+          value={view.faceFilter ?? "all"}
+          options={faceOptions}
+          onChange={(faceFilter) => onChange({ faceFilter })}
+          icon={ScanFace}
+          ariaLabel="얼굴 필터"
+        />
+
+        {/* Face scan — appears while unscanned photos remain or a scan runs */}
+        {(unscanned > 0 || scanning) && (
+          <button
+            onClick={onScanFaces}
+            disabled={scanning}
+            title="얼굴이 나온 사진을 로컬에서 찾아 표시해요 (업로드 없음)"
+            className={cn(
+              "flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-colors duration-200 ease-spring",
+              scanning
+                ? "border-sky-400/50 bg-sky-500/15 text-sky-200"
+                : "border-slate-700/60 bg-slate-800/60 text-slate-200 hover:bg-slate-700/60"
+            )}
+          >
+            {scanning ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" />
+                <span className="tabular-nums">
+                  {scanDone}/{scanTotal}
+                </span>
+                <span className="h-1.5 w-10 overflow-hidden rounded-full bg-slate-800">
+                  <span
+                    className="block h-full rounded-full bg-sky-400 transition-[width] duration-200"
+                    style={{ width: `${scanPct}%` }}
+                  />
+                </span>
+              </>
+            ) : (
+              <>
+                <ScanFace className="size-3.5" />
+                얼굴 스캔
+                <span className="tabular-nums text-slate-500">{unscanned}</span>
+              </>
+            )}
+          </button>
+        )}
 
         {/* Orientation filter */}
         <Dropdown

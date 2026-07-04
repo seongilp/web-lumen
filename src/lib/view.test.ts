@@ -103,6 +103,23 @@ describe("applyView – filtering", () => {
     ]);
   });
 
+  it("filters by face presence (with / without / all)", () => {
+    const items = [
+      makeItem({ name: "a", faces: 2 }), // has faces
+      makeItem({ name: "b", faces: 0 }), // scanned, no face
+      makeItem({ name: "c" }), // faces undefined → not yet scanned
+    ];
+    expect(applyView(items, { ...base, faceFilter: "all" })).toHaveLength(3);
+    expect(applyView(items, { ...base, faceFilter: "with" }).map((i) => i.name)).toEqual(["a"]);
+    expect(applyView(items, { ...base, faceFilter: "without" }).map((i) => i.name)).toEqual(["b"]);
+  });
+
+  it("keeps unscanned items out of both with and without", () => {
+    const items = [makeItem({ name: "u" })]; // faces undefined
+    expect(applyView(items, { ...base, faceFilter: "with" })).toHaveLength(0);
+    expect(applyView(items, { ...base, faceFilter: "without" })).toHaveLength(0);
+  });
+
   it("filters by folder and root", () => {
     const items = [
       makeItem({ relPath: "trip/a.png" }),

@@ -17,6 +17,7 @@ import type { Collected } from "./collect";
 import { exportLibrary, exportMeta as buildMetaBackup, importLibrary } from "./backup";
 import { clearRoots, getRoots, putRoot } from "./handle-store";
 import { ensureReadPermission, type Permissioned } from "./permissions";
+import { loadFaceDetector, detectFaceCount, setFaceScanEnabled } from "./face";
 import { fileKey } from "./utils";
 import type { Collection, ImageItem, ManifestItem, ThumbResponse } from "./types";
 
@@ -52,6 +53,7 @@ function toManifest(item: ImageItem): ManifestItem {
     phash: item.phash,
     collections: item.collections,
     tags: item.tags,
+    faces: item.faces,
     trashed: item.trashed,
     takenAt: item.takenAt,
     camera: item.camera,
@@ -713,6 +715,70 @@ export function useLibrary() {
     return healed;
   }, [applyResult, getPool, openOriginal, persistManifest, refreshUsage]);
 
+  // Detect faces locally on each thumbnail and store the count. `all` re-scans
+  // everything; otherwise only unscanned items. Cancellable via `signal`.
+  // Returns how many photos had at least one face.
+  const scanFaces = useCallback(
+    async (opts?: {
+      all?: boolean;
+      onProgress?: (done: number, total: number) => void;
+      signal?: () => boolean;
+    }): Promise<number> => {
+      const targets = itemsRef.current.filter(
+        (it) =>
+          it.status === "ready" &&
+          !it.trashed &&
+          (opts?.all || it.faces === undefined)
+      );
+      if (targets.length === 0) return 0;
+
+      const detector = await loadFaceDetector();
+      setFaceScanEnabled();
+      let done = 0;
+      let withFace = 0;
+      for (const it of targets) {
+        if (opts?.signal?.()) break;
+        // Decode the thumbnail. A bad/missing thumbnail is skipped as "no face".
+        let bmp: ImageBitmap | null = null;
+        try {
+          const thumb = await readThumb(it.id);
+          bmp = thumb ? await createImageBitmap(thumb) : null;
+        } catch {
+          bmp = null;
+        }
+        // Run detection. If the model itself can't run (e.g. no WebGL), let the
+        // error propagate so the whole scan fails loudly instead of silently
+        // marking every photo as face-free.
+        let count = 0;
+        if (bmp) {
+          try {
+            count = detectFaceCount(detector, bmp);
+          } finally {
+            bmp.close();
+          }
+        }
+        const idx = indexRef.current.get(it.id);
+        if (idx !== undefined) {
+          itemsRef.current[idx] = { ...itemsRef.current[idx], faces: count };
+        }
+        if (count > 0) withFace++;
+        done++;
+        opts?.onProgress?.(done, targets.length);
+        // Flush to UI + disk in batches so the grid updates and progress
+        // survives a reload mid-scan.
+        if (done % 24 === 0) {
+          setItems(itemsRef.current.slice());
+          await persistManifest();
+          await new Promise((r) => setTimeout(r, 0));
+        }
+      }
+      setItems(itemsRef.current.slice());
+      await persistManifest();
+      return withFace;
+    },
+    [persistManifest]
+  );
+
   const exportBackup = useCallback(
     () => exportLibrary(itemsRef.current, collectionsRef.current),
     []
@@ -747,6 +813,7 @@ export function useLibrary() {
     clear,
     openOriginal,
     ensureReadable,
+    scanFaces,
     toggleFavorite,
     removeItem,
     removeMany,

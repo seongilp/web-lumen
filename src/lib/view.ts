@@ -6,11 +6,18 @@ import type { ImageItem } from "./types";
 export type SortKey = "taken" | "date" | "name" | "size" | "res";
 export type Density = "sm" | "md" | "lg";
 export type FavFilter = "all" | "fav" | "unfav";
+export type FaceFilter = "all" | "with" | "without";
 
 export const FAV_FILTER_LABELS: Record<FavFilter, string> = {
   all: "전체",
   fav: "즐겨찾기만",
   unfav: "즐겨찾기 제외",
+};
+
+export const FACE_FILTER_LABELS: Record<FaceFilter, string> = {
+  all: "얼굴 전체",
+  with: "얼굴 있음",
+  without: "얼굴 없음",
 };
 
 /** Grid density → target minimum cell width (px). */
@@ -34,6 +41,8 @@ export interface ViewState {
   trashed?: boolean;
   /** Favorite filter (independent of the sidebar 즐겨찾기 selection). */
   favFilter?: FavFilter;
+  /** Face filter. "with"/"without" only match items that have been scanned. */
+  faceFilter?: FaceFilter;
 }
 
 export const ALL_FOLDERS = "";
@@ -156,6 +165,9 @@ export function applyView(items: ImageItem[], v: ViewState): ImageItem[] {
     if (v.onlyFavorites && !it.favorite) return false;
     if (v.favFilter === "fav" && !it.favorite) return false;
     if (v.favFilter === "unfav" && it.favorite) return false;
+    // Unscanned items (faces === undefined) match neither with nor without.
+    if (v.faceFilter === "with" && !(it.faces && it.faces > 0)) return false;
+    if (v.faceFilter === "without" && it.faces !== 0) return false;
     if (v.collection && !it.collections.includes(v.collection)) return false;
     if (v.tag && !it.tags.includes(v.tag)) return false;
     if (

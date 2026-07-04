@@ -29,6 +29,7 @@ import {
 import { findDuplicates, type DupMode } from "./lib/dedup";
 import { shareFiles, SHARE_MAX } from "./lib/share";
 import { downloadImages, type DownloadDeps } from "./lib/download";
+import { faceScanEnabled } from "./lib/face";
 import type { ThumbBadge } from "./components/Thumb";
 import {
   collectFromDataTransfer,
@@ -55,6 +56,8 @@ export default function App() {
   const [dupKind, setDupKind] = useState<DupMode>("exact");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanProg, setScanProg] = useState({ done: 0, total: 0 });
   const [metaNotice, setMetaNotice] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -107,6 +110,46 @@ export default function App() {
       setBusy(false);
     }
   }, [lib]);
+
+  // Photos not yet run through local face detection.
+  const unscanned = useMemo(
+    () =>
+      lib.items.filter(
+        (it) => it.status === "ready" && !it.trashed && it.faces === undefined
+      ).length,
+    [lib.items]
+  );
+
+  const runScan = useCallback(
+    async (announce: boolean) => {
+      setScanning(true);
+      setScanProg({ done: 0, total: 0 });
+      if (announce) setToast({ message: "얼굴을 찾는 중이에요… (기기 안에서만 처리)" });
+      try {
+        const withFace = await lib.scanFaces({
+          onProgress: (done, total) => setScanProg({ done, total }),
+        });
+        if (announce) setToast({ message: `얼굴이 있는 사진 ${withFace}장을 찾았어요.` });
+      } catch {
+        if (announce)
+          setToast({ message: "얼굴 인식 모델을 불러오지 못했어요. 잠시 후 다시 시도하세요." });
+      } finally {
+        setScanning(false);
+      }
+    },
+    [lib]
+  );
+
+  const scanFacesNow = useCallback(() => runScan(true), [runScan]);
+
+  // Auto-scan freshly imported photos once the user has run a scan at least once.
+  const wasImporting = useRef(false);
+  useEffect(() => {
+    if (wasImporting.current && !lib.importing && faceScanEnabled() && !scanning) {
+      void runScan(false);
+    }
+    wasImporting.current = lib.importing;
+  }, [lib.importing, scanning, runScan]);
 
   // Per-section counts for the sidebar.
   const counts = useMemo(() => {
@@ -563,6 +606,11 @@ export default function App() {
                 onToggleDup={() => setDupMode((d) => !d)}
                 density={density}
                 onDensityChange={setDensity}
+                unscanned={unscanned}
+                scanning={scanning}
+                scanDone={scanProg.done}
+                scanTotal={scanProg.total}
+                onScanFaces={scanFacesNow}
               />
             )}
 
