@@ -51,7 +51,7 @@ export function SelectionBar({
   onClear,
 }: SelectionBarProps) {
   return (
-    <div className="animate-fade-up flex flex-wrap items-center gap-2 border-b border-sky-500/25 bg-sky-500/10 px-5 py-2.5">
+    <div className="animate-fade-up relative z-30 flex flex-wrap items-center gap-2 border-b border-sky-500/25 bg-sky-500/10 px-5 py-2.5">
       <CheckCheck className="size-4 shrink-0 text-sky-300" />
       <span className="text-xs font-semibold text-sky-100">{count}개 선택</span>
 
