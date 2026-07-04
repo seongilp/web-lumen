@@ -290,21 +290,20 @@ export default function App() {
   );
   const onDropToTag = useCallback((tag: string, ids: string[]) => lib.addTag(ids, tag), [lib]);
 
-  // Native share (Web Share API); download fallback for the single-image case.
-  const shareOne = useCallback(
-    async (id: string) => {
-      const file = await lib.openOriginal(id);
-      if (!file) return;
-      const r = await shareFiles([file], file.name);
-      if (r === "unsupported") {
-        download(file, file.name);
-        setToast({ message: "공유를 지원하지 않아 다운로드했어요." });
-      } else if (r === "error") {
-        setToast({ message: "공유에 실패했어요." });
-      }
-    },
-    [lib]
-  );
+  // Native share (Web Share API). The file must already be loaded so we call
+  // navigator.share synchronously in the click — awaiting first loses the
+  // transient activation and the share is rejected. Fallback to download.
+  const shareOne = useCallback(async (file: File | null) => {
+    if (!file) {
+      setToast({ message: "이미지를 불러오는 중이에요. 잠시 후 다시 시도하세요." });
+      return;
+    }
+    const r = await shareFiles([file], file.name);
+    if (r === "unsupported" || r === "error") {
+      download(file, file.name);
+      setToast({ message: "공유가 안 돼서 다운로드했어요." });
+    }
+  }, []);
 
   const shareMany = useCallback(
     async (ids: string[]) => {

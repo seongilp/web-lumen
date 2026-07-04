@@ -33,7 +33,7 @@ interface LightboxProps {
   onRename: (id: string, name: string) => void;
   onAddTag: (id: string, tag: string) => void;
   onRemoveTag: (id: string, tag: string) => void;
-  onShare: (id: string) => void;
+  onShare: (file: File | null) => void;
   /** True when deleting removes the real file on disk (picker imports). */
   canDeleteReal?: boolean;
   /** When true (e.g. the editor is open), keyboard shortcuts are suspended. */
@@ -64,15 +64,20 @@ export function Lightbox({
   const [nameDraft, setNameDraft] = useState("");
   const [tagInput, setTagInput] = useState("");
   const urlRef = useRef<string | null>(null);
+  // Keep the loaded File so sharing runs synchronously in the click gesture
+  // (awaiting the original first loses the transient activation → share fails).
+  const fileRef = useRef<File | null>(null);
 
   // Load the full-resolution original from OPFS for the current item.
   useEffect(() => {
     let alive = true;
     setFullUrl(null);
     setZoomed(false);
+    fileRef.current = null;
     loadOriginal(item.id).then((file) => {
       if (!alive) return;
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+      fileRef.current = file;
       if (file) {
         const url = URL.createObjectURL(file);
         urlRef.current = url;
@@ -205,7 +210,7 @@ export function Lightbox({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => onShare(item.id)}
+            onClick={() => onShare(fileRef.current)}
             title="공유"
           >
             <Share2 />
