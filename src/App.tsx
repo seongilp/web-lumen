@@ -472,6 +472,25 @@ export default function App() {
       return;
     }
     await lib.ensureReadable(picked.map((it) => it.id));
+
+    // One photo → download the raw original directly (no zip wrapping).
+    if (picked.length === 1) {
+      const it = picked[0];
+      const orig = await lib.openOriginal(it.id);
+      if (!orig) {
+        setToast({ message: "원본을 찾지 못했어요. 폴더 권한을 확인해 주세요." });
+        return;
+      }
+      download(
+        new File([orig], it.name, {
+          type: it.type || orig.type || "application/octet-stream",
+        }),
+        it.name
+      );
+      setToast({ message: `${it.name} 다운로드했어요.` });
+      return;
+    }
+
     setBusy(true);
     setToast({ message: `사진 ${picked.length}장 압축 중…` });
     try {
