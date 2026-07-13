@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { ImageOff, Star, Check, ScanFace } from "lucide-react";
+import { ImageOff, Star, Check } from "lucide-react";
 import type { ImageItem } from "@/lib/types";
 import { cn, intToRgb } from "@/lib/utils";
 
@@ -104,20 +104,6 @@ function ThumbBase({
           )}
         >
           <Check className="size-3.5" strokeWidth={3} />
-        </span>
-      )}
-
-      {/* Face badge — hidden on hover / when selected so the checkbox is clear */}
-      {!badge && item.faces !== undefined && item.faces > 0 && (
-        <span
-          className={cn(
-            "pointer-events-none absolute left-2 top-2 flex items-center gap-0.5 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm transition-opacity duration-200",
-            selected ? "opacity-0" : "opacity-100 group-hover:opacity-0"
-          )}
-          title={`얼굴 ${item.faces}`}
-        >
-          <ScanFace className="size-3" />
-          {item.faces > 1 && item.faces}
         </span>
       )}
 

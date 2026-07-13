@@ -29,7 +29,6 @@ import {
 import { findDuplicates, type DupMode } from "./lib/dedup";
 import { shareFiles, SHARE_MAX } from "./lib/share";
 import { downloadImages, type DownloadDeps } from "./lib/download";
-import { faceScanEnabled } from "./lib/face";
 import type { ThumbBadge } from "./components/Thumb";
 import {
   collectFromDataTransfer,
@@ -56,8 +55,6 @@ export default function App() {
   const [dupKind, setDupKind] = useState<DupMode>("exact");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [scanProg, setScanProg] = useState({ done: 0, total: 0 });
   const [metaNotice, setMetaNotice] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -110,75 +107,6 @@ export default function App() {
       setBusy(false);
     }
   }, [lib]);
-
-  // The current view's items, ignoring the face filter itself — this is the
-  // scope a face scan covers (the selected folder / collection / favorites).
-  const scopeItems = useMemo(
-    () => applyView(lib.items, { ...effectiveView, faceFilter: "all" }),
-    [lib.items, effectiveView]
-  );
-  // Face-scan tallies for the current scope.
-  const faceScope = useMemo(() => {
-    let unscanned = 0;
-    let scanned = 0;
-    for (const it of scopeItems) {
-      if (it.status !== "ready") continue;
-      if (it.faces === undefined) unscanned++;
-      else scanned++;
-    }
-    return { unscanned, scanned };
-  }, [scopeItems]);
-  const unscanned = faceScope.unscanned;
-
-  // Scan the given ids (a folder/collection/favorites scope, or new imports).
-  // `all` re-scans even already-scanned photos.
-  const runScan = useCallback(
-    async (announce: boolean, ids: string[], all = false) => {
-      if (ids.length === 0) return;
-      setScanning(true);
-      setScanProg({ done: 0, total: ids.length });
-      if (announce) setToast({ message: "얼굴을 찾는 중이에요… (기기 안에서만 처리)" });
-      try {
-        const withFace = await lib.scanFaces({
-          ids,
-          all,
-          onProgress: (done, total) => setScanProg({ done, total }),
-        });
-        if (announce) setToast({ message: `얼굴이 있는 사진 ${withFace}장을 찾았어요.` });
-      } catch {
-        if (announce)
-          setToast({ message: "얼굴 인식 모델을 불러오지 못했어요. 잠시 후 다시 시도하세요." });
-      } finally {
-        setScanning(false);
-      }
-    },
-    [lib]
-  );
-
-  // Scan only the not-yet-scanned photos in view.
-  const scanFacesNow = useCallback(
-    () => runScan(true, scopeItems.map((it) => it.id)),
-    [runScan, scopeItems]
-  );
-  // Re-scan every photo in view, even ones already scanned.
-  const rescanFacesNow = useCallback(
-    () => runScan(true, scopeItems.map((it) => it.id), true),
-    [runScan, scopeItems]
-  );
-
-  // Auto-scan freshly imported photos (only those) once the user has scanned once.
-  const scannedImportRef = useRef<string[] | null>(null);
-  useEffect(() => {
-    if (
-      lib.lastImported !== scannedImportRef.current &&
-      lib.lastImported.length > 0 &&
-      faceScanEnabled() &&
-      !scanning
-    ) {
-      scannedImportRef.current = lib.lastImported;
-      void runScan(false, lib.lastImported);
-    }
-  }, [lib.lastImported, scanning, runScan]);
 
   // Per-section counts for the sidebar.
   const counts = useMemo(() => {
@@ -635,13 +563,6 @@ export default function App() {
                 onToggleDup={() => setDupMode((d) => !d)}
                 density={density}
                 onDensityChange={setDensity}
-                unscanned={unscanned}
-                scanned={faceScope.scanned}
-                scanning={scanning}
-                scanDone={scanProg.done}
-                scanTotal={scanProg.total}
-                onScanFaces={scanFacesNow}
-                onRescanFaces={rescanFacesNow}
               />
             )}
 

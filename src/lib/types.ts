@@ -29,8 +29,6 @@ export interface ImageItem {
   collections: string[];
   /** Free-text tags (labels) attached to this image. */
   tags: string[];
-  /** Face count from local detection. undefined = not scanned yet, 0 = no face. */
-  faces?: number;
   /** Soft-deleted: hidden from normal views, kept until trash is emptied. */
   trashed: boolean;
   /** EXIF: capture time (ms), camera "Make Model", GPS coords. */
@@ -58,7 +56,6 @@ export interface ManifestItem {
   phash?: string;
   collections?: string[];
   tags?: string[];
-  faces?: number;
   trashed?: boolean;
   takenAt?: number;
   camera?: string;

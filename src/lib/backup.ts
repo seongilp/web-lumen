@@ -48,7 +48,6 @@ function toMeta(it: ImageItem): ManifestItem {
     phash: it.phash,
     collections: it.collections,
     tags: it.tags,
-    faces: it.faces,
     trashed: it.trashed,
     takenAt: it.takenAt,
     camera: it.camera,

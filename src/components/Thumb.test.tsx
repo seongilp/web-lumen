@@ -48,32 +48,6 @@ describe("Thumb", () => {
     expect(screen.getByText("유지")).toBeInTheDocument();
   });
 
-  it("shows a face badge with the count when faces are present", () => {
-    setup({ faces: 3 });
-    const badge = screen.getByTitle("얼굴 3");
-    expect(badge).toBeInTheDocument();
-    expect(badge).toHaveTextContent("3");
-  });
-
-  it("shows the face badge without a number for a single face", () => {
-    setup({ faces: 1 });
-    const badge = screen.getByTitle("얼굴 1");
-    expect(badge).toBeInTheDocument();
-    expect(badge).not.toHaveTextContent("1"); // icon only, no count for one
-  });
-
-  it("shows no face badge for zero or unscanned", () => {
-    setup({ faces: 0 });
-    expect(screen.queryByTitle(/얼굴/)).toBeNull();
-    setup({ faces: undefined });
-    expect(screen.queryByTitle(/얼굴/)).toBeNull();
-  });
-
-  it("hides the face badge in duplicate mode", () => {
-    setup({ faces: 2 }, { badge: "dupe" });
-    expect(screen.queryByTitle(/얼굴/)).toBeNull();
-  });
-
   it("toggles selection via the checkbox without opening", () => {
     const onSelect = vi.fn();
     const item = setup({}, { selectable: true, onSelect }).item;

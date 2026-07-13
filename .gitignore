@@ -17,4 +17,3 @@ public/wasm
 .vscode/*
 !.vscode/extensions.json
 .idea
-public/mediapipe

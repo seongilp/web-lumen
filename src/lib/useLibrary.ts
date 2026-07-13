@@ -17,7 +17,6 @@ import type { Collected } from "./collect";
 import { exportLibrary, exportMeta as buildMetaBackup, importLibrary } from "./backup";
 import { clearRoots, getRoots, putRoot } from "./handle-store";
 import { ensureReadPermission, type Permissioned } from "./permissions";
-import { loadFaceScanner, setFaceScanEnabled } from "./face";
 import { fileKey } from "./utils";
 import type { Collection, ImageItem, ManifestItem, ThumbResponse } from "./types";
 
@@ -35,8 +34,6 @@ export interface LibraryState {
   supported: boolean;
   restoredCount: number;
   collections: Collection[];
-  /** Ids from the most recent import (for scoped auto-scan). */
-  lastImported: string[];
 }
 
 function toManifest(item: ImageItem): ManifestItem {
@@ -55,7 +52,6 @@ function toManifest(item: ImageItem): ManifestItem {
     phash: item.phash,
     collections: item.collections,
     tags: item.tags,
-    faces: item.faces,
     trashed: item.trashed,
     takenAt: item.takenAt,
     camera: item.camera,
@@ -73,8 +69,6 @@ export function useLibrary() {
   const [collections, setCollections] = useState<Collection[]>([]);
   // How many items were restored from OPFS at startup (drives the trust banner).
   const [restoredCount, setRestoredCount] = useState(0);
-  // Ids from the most recent import — lets the app auto-scan just new photos.
-  const [lastImported, setLastImported] = useState<string[]>([]);
 
   const supported = opfsSupported();
 
@@ -303,7 +297,6 @@ export function useLibrary() {
       await persistManifest();
 
       setImporting(false);
-      setLastImported(jobs.map((j) => j.id)); // let the app auto-scan just these
       refreshUsage();
     },
     [applyResult, getPool, persistManifest, reindex, refreshUsage]
@@ -720,75 +713,6 @@ export function useLibrary() {
     return healed;
   }, [applyResult, getPool, openOriginal, persistManifest, refreshUsage]);
 
-  // Detect faces locally on each thumbnail and store the count. `all` re-scans
-  // everything; otherwise only unscanned items. Cancellable via `signal`.
-  // Returns how many photos had at least one face.
-  const scanFaces = useCallback(
-    async (opts?: {
-      all?: boolean;
-      /** Restrict the scan to these ids (e.g. the current folder/collection). */
-      ids?: string[];
-      onProgress?: (done: number, total: number) => void;
-      signal?: () => boolean;
-    }): Promise<number> => {
-      const idSet = opts?.ids ? new Set(opts.ids) : null;
-      const targets = itemsRef.current.filter(
-        (it) =>
-          it.status === "ready" &&
-          !it.trashed &&
-          (opts?.all || it.faces === undefined) &&
-          (!idSet || idSet.has(it.id))
-      );
-      if (targets.length === 0) return 0;
-
-      const scanner = await loadFaceScanner();
-      setFaceScanEnabled();
-      let done = 0;
-      let withFace = 0;
-
-      try {
-        for (const it of targets) {
-          if (opts?.signal?.()) break;
-          // Decode the thumbnail. A bad/missing one is skipped as "no face".
-          let bmp: ImageBitmap | null = null;
-          try {
-            const thumb = await readThumb(it.id);
-            bmp = thumb ? await createImageBitmap(thumb) : null;
-          } catch {
-            bmp = null;
-          }
-          let count = 0;
-          if (bmp) {
-            try {
-              count = await scanner.detect(bmp); // -1 never returned (it throws)
-            } finally {
-              bmp.close();
-            }
-          }
-          const idx = indexRef.current.get(it.id);
-          if (idx !== undefined) {
-            itemsRef.current[idx] = { ...itemsRef.current[idx], faces: count };
-          }
-          if (count > 0) withFace++;
-          done++;
-          opts?.onProgress?.(done, targets.length);
-          // Flush badges + persist in batches, and always yield a macrotask so
-          // the UI can paint between detections (keeps the app responsive).
-          if (done % 16 === 0) {
-            setItems(itemsRef.current.slice());
-            await persistManifest();
-          }
-          await new Promise((r) => setTimeout(r, 0));
-        }
-      } finally {
-        setItems(itemsRef.current.slice());
-        await persistManifest();
-      }
-      return withFace;
-    },
-    [persistManifest]
-  );
-
   const exportBackup = useCallback(
     () => exportLibrary(itemsRef.current, collectionsRef.current),
     []
@@ -816,7 +740,6 @@ export function useLibrary() {
     supported,
     restoredCount,
     collections,
-    lastImported,
   };
   return {
     ...state,
@@ -824,7 +747,6 @@ export function useLibrary() {
     clear,
     openOriginal,
     ensureReadable,
-    scanFaces,
     toggleFavorite,
     removeItem,
     removeMany,
